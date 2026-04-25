@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import ProductCard from "@/components/ProductCard";
-import { clearError, createProduct, fetchProducts } from "@/lib/features/erpSlice";
+import { clearError, createProduct, deleteProduct, fetchProducts } from "@/lib/features/erpSlice";
 
 const defaultImage = "https://picsum.photos/seed/spare-store/900/600";
 
@@ -60,6 +60,15 @@ export default function StorePage() {
       idsText: "",
       image_url: defaultImage,
     });
+  }
+
+  async function handleDelete(product) {
+    const confirmed = window.confirm(`Delete ${product.name}? This cannot be undone.`);
+    if (!confirmed) {
+      return;
+    }
+
+    await dispatch(deleteProduct(product.id));
   }
 
   return (
@@ -155,7 +164,12 @@ export default function StorePage() {
               <p className="text-sm text-slate-600">No products found.</p>
             ) : null}
             {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard
+                key={product.id}
+                product={product}
+                onDelete={handleDelete}
+                deleting={actionLoading}
+              />
             ))}
           </div>
         </div>

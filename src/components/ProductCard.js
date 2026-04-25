@@ -2,7 +2,7 @@ import Image from "next/image";
 
 const fallbackImage = "https://picsum.photos/seed/spare-erp/900/600";
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, onDelete, deleting = false }) {
   const tracked = Array.isArray(product.ids) && product.ids.length > 0;
 
   return (
@@ -39,6 +39,14 @@ export default function ProductCard({ product }) {
             {tracked ? product.ids.join(", ") : "No item IDs for this product"}
           </p>
         </div>
+        <button
+          type="button"
+          className="w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={() => onDelete?.(product)}
+          disabled={deleting}
+        >
+          {deleting ? "Deleting..." : "Delete Product"}
+        </button>
       </div>
     </article>
   );

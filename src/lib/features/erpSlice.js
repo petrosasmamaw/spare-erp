@@ -18,6 +18,15 @@ export const createProduct = createAsyncThunk("erp/createProduct", async (payloa
   return true;
 });
 
+export const deleteProduct = createAsyncThunk("erp/deleteProduct", async (productId, { dispatch }) => {
+  await apiRequest(`/products/${productId}`, {
+    method: "DELETE",
+  });
+
+  await dispatch(fetchProducts());
+  return true;
+});
+
 export const buyProduct = createAsyncThunk("erp/buyProduct", async ({ productId, payload }, { dispatch }) => {
   await apiRequest(`/products/${productId}/buy`, {
     method: "POST",
@@ -119,6 +128,7 @@ const erpSlice = createSlice({
       .addMatcher(
         (action) =>
           action.type === createProduct.pending.type ||
+          action.type === deleteProduct.pending.type ||
           action.type === buyProduct.pending.type ||
           action.type === sellProduct.pending.type,
         (state) => {
@@ -129,6 +139,7 @@ const erpSlice = createSlice({
       .addMatcher(
         (action) =>
           action.type === createProduct.fulfilled.type ||
+          action.type === deleteProduct.fulfilled.type ||
           action.type === buyProduct.fulfilled.type ||
           action.type === sellProduct.fulfilled.type,
         (state) => {
@@ -138,6 +149,7 @@ const erpSlice = createSlice({
       .addMatcher(
         (action) =>
           action.type === createProduct.rejected.type ||
+          action.type === deleteProduct.rejected.type ||
           action.type === buyProduct.rejected.type ||
           action.type === sellProduct.rejected.type,
         (state, action) => {

@@ -81,6 +81,29 @@ async function createProduct(req, res) {
   }
 }
 
+async function deleteProduct(req, res) {
+  const productId = Number(req.params.id);
+
+  if (!Number.isInteger(productId)) {
+    return res.status(400).json({ error: "Invalid product id" });
+  }
+
+  try {
+    const { rowCount } = await getPool().query(
+      `DELETE FROM products WHERE id = $1 RETURNING id`,
+      [productId]
+    );
+
+    if (!rowCount) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    return res.json({ ok: true });
+  } catch (_error) {
+    return res.status(500).json({ error: "Failed to delete product" });
+  }
+}
+
 async function buyProduct(req, res) {
   const productId = Number(req.params.id);
   const { quantity: quantityRaw, ids: idsRaw, price: priceRaw } = req.body || {};
@@ -290,6 +313,7 @@ async function sellProduct(req, res) {
 module.exports = {
   buyProduct,
   createProduct,
+  deleteProduct,
   getProducts,
   sellProduct,
 };
