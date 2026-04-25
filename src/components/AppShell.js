@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 const links = [
+  { href: "/", label: "Home" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/store", label: "Store" },
   { href: "/buy", label: "Buy" },
@@ -13,37 +15,66 @@ const links = [
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const isActive = (href) => {
+    if (href === "/") {
+      return pathname === "/";
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#fff6d6_0%,_#f3fbff_45%,_#eef5ff_100%)] text-slate-900">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:px-8">
-        <header className="rounded-3xl border border-white/70 bg-white/75 p-5 shadow-lg shadow-amber-100/40 backdrop-blur-xl">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Spare ERP</p>
-              <h1 className="font-display text-3xl leading-tight text-slate-900">Inventory Intelligence Panel</h1>
+    <div className="relative min-h-screen overflow-x-clip bg-[radial-gradient(circle_at_10%_10%,_#ffecc7_0%,_#f6fbff_40%,_#e8f1ff_100%)] text-slate-900">
+      <div className="pointer-events-none absolute left-[-80px] top-[-120px] h-64 w-64 rounded-full bg-amber-300/35 blur-3xl" />
+      <div className="pointer-events-none absolute right-[-40px] top-[140px] h-56 w-56 rounded-full bg-cyan-300/25 blur-3xl" />
+
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 md:px-8 md:py-6">
+        <header className="sticky top-3 z-30 rounded-3xl border border-white/70 bg-white/70 p-4 shadow-xl shadow-cyan-950/10 backdrop-blur-xl md:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-[linear-gradient(140deg,#0f766e,#0369a1)] text-lg font-extrabold text-white shadow-lg shadow-cyan-900/20">
+                S
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Spare ERP</p>
+                <h1 className="font-display text-2xl leading-tight text-slate-900 md:text-3xl">Inventory Intelligence Panel</h1>
+              </div>
             </div>
-            <p className="max-w-md text-sm text-slate-600">
-              Real-time stock, transaction history, and item-level reports for tracked and bulk products.
-            </p>
+
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm md:hidden"
+              onClick={() => setMenuOpen((prev) => !prev)}
+            >
+              {menuOpen ? "Close" : "Menu"}
+            </button>
           </div>
-          <nav className="mt-5 flex flex-wrap gap-2">
+
+          <p className="mt-3 hidden max-w-2xl text-sm text-slate-600 md:block">
+            Real-time stock, transaction history, and item-level reports for tracked and bulk products.
+          </p>
+
+          <nav className={`mt-4 ${menuOpen ? "block" : "hidden"} md:block`}>
+            <div className="flex flex-wrap gap-2 md:gap-2.5">
             {links.map((item) => {
-              const active = pathname === item.href;
+              const active = isActive(item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => setMenuOpen(false)}
                   className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                     active
-                      ? "bg-slate-900 text-white shadow-md shadow-slate-900/25"
-                      : "bg-white text-slate-700 hover:bg-amber-100"
+                      ? "bg-[linear-gradient(135deg,#0f766e,#0284c7)] text-white shadow-md shadow-cyan-900/25"
+                      : "bg-white text-slate-700 ring-1 ring-slate-200 hover:-translate-y-[1px] hover:bg-amber-50"
                   }`}
                 >
                   {item.label}
                 </Link>
               );
             })}
+            </div>
           </nav>
         </header>
 
