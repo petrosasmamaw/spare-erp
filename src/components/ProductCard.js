@@ -36,7 +36,9 @@ export default function ProductCard({ product, onDelete, deleting = false }) {
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">IDs</p>
           <p className="max-h-16 overflow-auto text-sm text-slate-700">
-            {tracked ? product.ids.join(", ") : "No item IDs for this product"}
+            {tracked
+              ? product.ids.map((item) => item?.id).filter(Boolean).join(", ")
+              : "No item IDs for this product"}
           </p>
         </div>
         <button

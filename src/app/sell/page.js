@@ -95,7 +95,12 @@ export default function SellPage() {
         {selectedProduct ? (
           <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
             <p><strong>Stock:</strong> {selectedProduct.stock}</p>
-            <p><strong>Tracked IDs:</strong> {selectedProduct.ids?.length ? selectedProduct.ids.join(", ") : "No IDs"}</p>
+            <p>
+              <strong>Tracked IDs:</strong>{" "}
+              {selectedProduct.ids?.length
+                ? selectedProduct.ids.map((item) => item?.id).filter(Boolean).join(", ")
+                : "No IDs"}
+            </p>
           </div>
         ) : null}
       </div>

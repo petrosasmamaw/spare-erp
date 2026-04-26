@@ -39,7 +39,8 @@ export default function StorePage() {
     const ids = form.idsText
       .split(",")
       .map((part) => part.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .map((idValue) => ({ id: idValue }));
 
     await dispatch(
       createProduct({
@@ -116,7 +117,7 @@ export default function StorePage() {
             />
             <input
               className="input"
-              placeholder="IDs (comma separated, optional)"
+              placeholder="IDs (comma separated, e.g. 001,002,003)"
               value={form.idsText}
               onChange={(e) => setForm((prev) => ({ ...prev, idsText: e.target.value }))}
             />

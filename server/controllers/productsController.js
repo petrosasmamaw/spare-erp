@@ -1,5 +1,43 @@
 const { getPool, logItemReport, logTransaction, parseNumeric } = require("./erpHelpers");
 
+function normalizeIncomingIds(idsRaw) {
+  if (!Array.isArray(idsRaw)) {
+    return [];
+  }
+
+  return idsRaw
+    .map((value) => {
+      if (value && typeof value === "object") {
+        return String(value.id || "").trim();
+      }
+
+      return String(value || "").trim();
+    })
+    .filter(Boolean)
+    .map((idValue) => ({ id: idValue }));
+}
+
+function normalizeStoredIds(idsRaw) {
+  if (!Array.isArray(idsRaw)) {
+    return [];
+  }
+
+  return idsRaw
+    .map((value) => {
+      if (value && typeof value === "object") {
+        return String(value.id || "").trim();
+      }
+
+      return String(value || "").trim();
+    })
+    .filter(Boolean)
+    .map((idValue) => ({ id: idValue }));
+}
+
+function getIdValue(item) {
+  return String(item?.id || "").trim();
+}
+
 async function getProducts(req, res) {
   try {
     const search = String(req.query.search || "").trim();
@@ -42,8 +80,10 @@ async function createProduct(req, res) {
   }
 
   const defaultPrice = parseNumeric(defaultPriceRaw, -1);
-  const ids = Array.isArray(idsRaw) ? idsRaw.map((value) => String(value).trim()).filter(Boolean) : [];
-  const uniqueIds = [...new Set(ids)];
+  const ids = normalizeIncomingIds(idsRaw);
+  const idValues = ids.map(getIdValue);
+  const uniqueValues = [...new Set(idValues)];
+  const uniqueIds = uniqueValues.map((idValue) => ({ id: idValue }));
 
   if (ids.length !== uniqueIds.length) {
     return res.status(400).json({ error: "Duplicate IDs are not allowed" });
@@ -128,26 +168,31 @@ async function buyProduct(req, res) {
     }
 
     const product = rows[0];
-    const currentIds = Array.isArray(product.ids) ? product.ids : [];
-    const trackedBuyIds = Array.isArray(idsRaw)
-      ? idsRaw.map((value) => String(value).trim()).filter(Boolean)
-      : [];
-
-    const uniqueIncoming = [...new Set(trackedBuyIds)];
+    const currentIds = normalizeStoredIds(product.ids);
+    const trackedBuyIds = normalizeIncomingIds(idsRaw);
+    const incomingValues = trackedBuyIds.map(getIdValue);
+    const uniqueIncomingValues = [...new Set(incomingValues)];
+    const uniqueIncoming = uniqueIncomingValues.map((idValue) => ({ id: idValue }));
 
     if (trackedBuyIds.length !== uniqueIncoming.length) {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: "Duplicate incoming IDs are not allowed" });
     }
 
-    const duplicateExisting = uniqueIncoming.find((idValue) => currentIds.includes(idValue));
+    const currentValuesSet = new Set(currentIds.map(getIdValue));
+    const duplicateExisting = uniqueIncoming.find((item) => currentValuesSet.has(getIdValue(item)));
 
     if (duplicateExisting) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ error: `Duplicate ID: ${duplicateExisting}` });
+      return res.status(400).json({ error: `Duplicate ID: ${getIdValue(duplicateExisting)}` });
     }
 
     const unitPrice = parseNumeric(priceRaw, parseNumeric(product.default_price, 0));
+
+    if (currentIds.length > 0 && trackedBuyIds.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Tracked products must be bought with IDs" });
+    }
 
     if (trackedBuyIds.length > 0) {
       const newIds = [...currentIds, ...uniqueIncoming];
@@ -159,9 +204,10 @@ async function buyProduct(req, res) {
       );
 
       for (let index = 0; index < uniqueIncoming.length; index += 1) {
+        const idValue = getIdValue(uniqueIncoming[index]);
         await logItemReport(client, {
           productId,
-          itemId: uniqueIncoming[index],
+          itemId: idValue,
           type: "buy",
           quantity: 1,
           price: unitPrice,
@@ -233,7 +279,7 @@ async function sellProduct(req, res) {
     }
 
     const product = rows[0];
-    const currentIds = Array.isArray(product.ids) ? product.ids : [];
+    const currentIds = normalizeStoredIds(product.ids);
 
     if (product.stock <= 0) {
       await client.query("ROLLBACK");
@@ -242,14 +288,18 @@ async function sellProduct(req, res) {
 
     const unitPrice = parseNumeric(priceRaw, parseNumeric(product.default_price, 0));
     const itemId = itemIdRaw ? String(itemIdRaw).trim() : "";
+    const currentValues = currentIds.map(getIdValue);
 
     if (itemId) {
-      if (!currentIds.includes(itemId)) {
+      const removeIndex = currentValues.findIndex((value) => value === itemId);
+
+      if (removeIndex === -1) {
         await client.query("ROLLBACK");
         return res.status(400).json({ error: "ID not found" });
       }
 
-      const nextIds = currentIds.filter((value) => value !== itemId);
+      const nextIds = [...currentIds];
+      nextIds.splice(removeIndex, 1);
       const newStock = product.stock - 1;
 
       await client.query(
@@ -269,6 +319,11 @@ async function sellProduct(req, res) {
       await logTransaction(client, productId, "sell", unitPrice);
       await client.query("COMMIT");
       return res.json({ ok: true });
+    }
+
+    if (currentIds.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Tracked products must be sold with an Item ID" });
     }
 
     const quantity = Number(quantityRaw);

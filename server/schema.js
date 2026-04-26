@@ -8,11 +8,39 @@ async function initSchema() {
       category TEXT NOT NULL,
       stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
       default_price NUMERIC(12, 2) NOT NULL CHECK (default_price >= 0),
-      ids TEXT[] NOT NULL DEFAULT '{}',
+      ids JSONB NOT NULL DEFAULT '[]'::jsonb,
       image_url TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);
+
+  await pool.query(`
+    DO $$
+    DECLARE
+      ids_type TEXT;
+    BEGIN
+      SELECT data_type INTO ids_type
+      FROM information_schema.columns
+      WHERE table_name = 'products' AND column_name = 'ids';
+
+      IF ids_type <> 'jsonb' THEN
+        ALTER TABLE products
+        ALTER COLUMN ids TYPE JSONB
+        USING COALESCE(
+          (
+            SELECT jsonb_agg(jsonb_build_object('id', item))
+            FROM unnest(ids::text[]) AS item
+          ),
+          '[]'::jsonb
+        );
+      END IF;
+    END $$;
+  `);
+
+  await pool.query(`
+    ALTER TABLE products
+    ALTER COLUMN ids SET DEFAULT '[]'::jsonb;
   `);
 
   await pool.query(`

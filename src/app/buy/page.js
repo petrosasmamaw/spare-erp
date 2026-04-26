@@ -29,7 +29,8 @@ export default function BuyPage() {
     const ids = idsText
       .split(",")
       .map((part) => part.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .map((idValue) => ({ id: idValue }));
 
     const payload = ids.length
       ? { ids, price: Number(price || selectedProduct?.default_price || 0) }
@@ -68,7 +69,7 @@ export default function BuyPage() {
 
           <input
             className="input"
-            placeholder="IDs (comma separated for tracked mode)"
+            placeholder="IDs (tracked mode: 001,002,003)"
             value={idsText}
             onChange={(e) => setIdsText(e.target.value)}
           />
@@ -98,7 +99,12 @@ export default function BuyPage() {
             <p><strong>Name:</strong> {selectedProduct.name}</p>
             <p><strong>Current stock:</strong> {selectedProduct.stock}</p>
             <p><strong>Default price:</strong> Rs {Number(selectedProduct.default_price || 0).toFixed(2)}</p>
-            <p><strong>IDs:</strong> {selectedProduct.ids?.length ? selectedProduct.ids.join(", ") : "Bulk item"}</p>
+            <p>
+              <strong>IDs:</strong>{" "}
+              {selectedProduct.ids?.length
+                ? selectedProduct.ids.map((item) => item?.id).filter(Boolean).join(", ")
+                : "Bulk item"}
+            </p>
           </div>
         )}
       </div>
