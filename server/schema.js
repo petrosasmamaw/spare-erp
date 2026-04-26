@@ -89,9 +89,12 @@ async function initSchema() {
       product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
       type TEXT NOT NULL CHECK (type IN ('buy', 'sell')),
       amount NUMERIC(12, 2) NOT NULL CHECK (amount >= 0),
+      ethiopian_date TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+
+  await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS ethiopian_date TEXT;`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS finance_accounts (
@@ -114,6 +117,7 @@ async function initSchema() {
       account_type TEXT NOT NULL CHECK (account_type IN ('balance', 'credit')),
       direction TEXT NOT NULL CHECK (direction IN ('in', 'out')),
       amount NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
+      ethiopian_date TEXT,
       supplier_name TEXT,
       note TEXT,
       source TEXT,
@@ -125,6 +129,7 @@ async function initSchema() {
     );
   `);
 
+  await pool.query(`ALTER TABLE finance_reports ADD COLUMN IF NOT EXISTS ethiopian_date TEXT;`);
   await pool.query(`ALTER TABLE finance_reports ADD COLUMN IF NOT EXISTS supplier_name TEXT;`);
 
   await pool.query(`

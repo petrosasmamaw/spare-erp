@@ -45,6 +45,7 @@ export default function DashboardPage() {
             <thead>
               <tr className="border-b border-slate-200 text-xs uppercase tracking-[0.2em] text-slate-500">
                 <th className="pb-3">Date</th>
+                <th className="pb-3">Ethiopian Date</th>
                 <th className="pb-3">Product</th>
                 <th className="pb-3">Type</th>
                 <th className="pb-3">Amount</th>
@@ -54,6 +55,7 @@ export default function DashboardPage() {
               {transactions.map((row) => (
                 <tr key={row.id} className="border-b border-slate-100">
                   <td className="py-3">{new Date(row.created_at).toLocaleString()}</td>
+                  <td className="py-3">{row.ethiopian_date || "-"}</td>
                   <td className="py-3">{row.product_name}</td>
                   <td className="py-3 capitalize">{row.type}</td>
                   <td className="py-3 font-semibold">{asCurrency(row.amount)}</td>
@@ -61,7 +63,7 @@ export default function DashboardPage() {
               ))}
               {transactions.length === 0 ? (
                 <tr>
-                  <td className="py-4 text-slate-500" colSpan={4}>No transactions yet.</td>
+                  <td className="py-4 text-slate-500" colSpan={5}>No transactions yet.</td>
                 </tr>
               ) : null}
             </tbody>

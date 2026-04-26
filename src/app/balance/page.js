@@ -268,6 +268,7 @@ export default function BalancePage() {
               <thead>
                 <tr className="border-b border-slate-200 text-xs uppercase tracking-[0.2em] text-slate-500">
                   <th className="pb-3">Date</th>
+                  <th className="pb-3">Ethiopian Date</th>
                   <th className="pb-3">Account</th>
                   <th className="pb-3">Direction</th>
                   <th className="pb-3">Amount</th>
@@ -282,6 +283,7 @@ export default function BalancePage() {
                 {financeReports.map((row) => (
                   <tr key={row.id} className="border-b border-slate-100">
                     <td className="py-3">{new Date(row.created_at).toLocaleString()}</td>
+                    <td className="py-3">{row.ethiopian_date || "-"}</td>
                     <td className="py-3 capitalize">{row.account_type}</td>
                     <td className="py-3 uppercase">{row.direction}</td>
                     <td className="py-3">{asCurrency(row.amount)}</td>
@@ -294,7 +296,7 @@ export default function BalancePage() {
                 ))}
                 {financeReports.length === 0 ? (
                   <tr>
-                    <td className="py-4 text-slate-500" colSpan={9}>No balance/credit reports found.</td>
+                    <td className="py-4 text-slate-500" colSpan={10}>No balance/credit reports found.</td>
                   </tr>
                 ) : null}
               </tbody>

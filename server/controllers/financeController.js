@@ -1,4 +1,24 @@
 const { applyFinanceEntry, getPool, getRangeClause, parseNumeric } = require("./erpHelpers");
+const { toEthiopian } = require("ethiopian-date");
+
+function resolveEthiopianDate(row) {
+  if (row.ethiopian_date) {
+    return row.ethiopian_date;
+  }
+
+  if (!row.created_at) {
+    return null;
+  }
+
+  const createdAt = new Date(row.created_at);
+  const [year, month, day] = toEthiopian(
+    createdAt.getFullYear(),
+    createdAt.getMonth() + 1,
+    createdAt.getDate()
+  );
+
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 
 async function getFinanceSummary(_req, res) {
   try {
@@ -74,6 +94,7 @@ async function getFinanceReports(req, res) {
           account_type,
           direction,
           amount,
+          ethiopian_date,
             supplier_name,
           note,
           source,
@@ -90,7 +111,7 @@ async function getFinanceReports(req, res) {
       values
     );
 
-    res.json(rows);
+    res.json(rows.map((row) => ({ ...row, ethiopian_date: resolveEthiopianDate(row) })));
   } catch (_error) {
     res.status(500).json({ error: "Failed to load finance reports" });
   }

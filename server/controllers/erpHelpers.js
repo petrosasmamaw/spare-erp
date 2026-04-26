@@ -1,4 +1,18 @@
 const { pool } = require("../db");
+const { toEthiopian } = require("ethiopian-date");
+
+function getCurrentEthiopianDate() {
+  const now = new Date();
+  const [year, month, day] = toEthiopian(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    now.getDate()
+  );
+
+  const mm = String(month).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  return `${year}-${mm}-${dd}`;
+}
 
 function parseNumeric(value, fallback = 0) {
   const parsed = Number(value);
@@ -26,9 +40,13 @@ function getRangeClause(range) {
 }
 
 async function logTransaction(client, productId, type, amount) {
+  const ethiopianDate = getCurrentEthiopianDate();
   await client.query(
-    `INSERT INTO transactions (product_id, type, amount) VALUES ($1, $2, $3)`,
-    [productId, type, amount]
+    `
+      INSERT INTO transactions (product_id, type, amount, ethiopian_date)
+      VALUES ($1, $2, $3, $4)
+    `,
+    [productId, type, amount, ethiopianDate]
   );
 }
 
@@ -125,12 +143,15 @@ async function applyFinanceEntry(
     [nextBalance, nextCredit]
   );
 
+  const ethiopianDate = getCurrentEthiopianDate();
+
   await client.query(
     `
       INSERT INTO finance_reports (
         account_type,
         direction,
         amount,
+        ethiopian_date,
         supplier_name,
         note,
         source,
@@ -139,12 +160,13 @@ async function applyFinanceEntry(
         balance_after,
         credit_after
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     `,
     [
       accountType,
       direction,
       amount,
+      ethiopianDate,
       accountType === "credit" ? String(supplierName || "").trim() : null,
       note || null,
       source || null,
