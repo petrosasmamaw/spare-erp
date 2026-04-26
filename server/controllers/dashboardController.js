@@ -7,10 +7,23 @@ async function getDashboard(req, res) {
   try {
     const salesResult = await getPool().query(
       `
-        SELECT
-          COALESCE(SUM(sell_price), 0) AS total_sales,
-          COALESCE(SUM(buy_price), 0) AS total_cost,
-          COALESCE(SUM(profit), 0) AS total_profit
+        SELECT COALESCE(SUM(sell_price), 0) AS total_sales
+        FROM item_reports
+        WHERE type = 'sell' ${rangeClause}
+      `
+    );
+
+    const costResult = await getPool().query(
+      `
+        SELECT COALESCE(SUM(buy_price), 0) AS total_cost
+        FROM item_reports
+        WHERE type = 'buy' ${rangeClause}
+      `
+    );
+
+    const profitResult = await getPool().query(
+      `
+        SELECT COALESCE(SUM(profit), 0) AS total_profit
         FROM item_reports
         WHERE type = 'sell' ${rangeClause}
       `
@@ -21,8 +34,8 @@ async function getDashboard(req, res) {
     );
 
     const totalSales = Number(salesResult.rows[0].total_sales || 0);
-    const totalCost = Number(salesResult.rows[0].total_cost || 0);
-    const totalProfit = Number(salesResult.rows[0].total_profit || 0);
+    const totalCost = Number(costResult.rows[0].total_cost || 0);
+    const totalProfit = Number(profitResult.rows[0].total_profit || 0);
 
     res.json({
       totalSales,
