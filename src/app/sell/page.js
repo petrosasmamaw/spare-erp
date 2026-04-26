@@ -26,8 +26,13 @@ export default function SellPage() {
     event.preventDefault();
     if (!selectedId) return;
 
-    const payload = itemId.trim()
-      ? { item_id: itemId.trim(), price: Number(price || selectedProduct?.default_price || 0) }
+    const idList = itemId
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    const payload = idList.length
+      ? { item_ids: idList, price: Number(price || selectedProduct?.default_price || 0) }
       : { quantity: Number(quantity), price: Number(price || selectedProduct?.default_price || 0) };
 
     await dispatch(sellProduct({ productId: selectedId, payload }));
@@ -40,7 +45,7 @@ export default function SellPage() {
     <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
       <form onSubmit={onSubmit} className="rounded-3xl border border-white/80 bg-white/90 p-5 shadow-lg shadow-rose-100/60">
         <h2 className="font-display text-2xl">Sell Items</h2>
-        <p className="mt-1 text-sm text-slate-600">Sell one ID for tracked products or quantity for bulk items.</p>
+        <p className="mt-1 text-sm text-slate-600">Sell one or many IDs (comma separated) for tracked products, or quantity for bulk items.</p>
 
         <div className="mt-4 grid gap-3">
           <select className="input" value={selectedId} onChange={(e) => setSelectedId(e.target.value)} required>
@@ -63,7 +68,7 @@ export default function SellPage() {
 
           <input
             className="input"
-            placeholder="Item ID (tracked mode)"
+            placeholder="Item IDs (tracked mode: 001 or 001,002)"
             value={itemId}
             onChange={(e) => setItemId(e.target.value)}
           />

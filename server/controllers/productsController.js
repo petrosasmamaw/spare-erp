@@ -257,7 +257,12 @@ async function buyProduct(req, res) {
 
 async function sellProduct(req, res) {
   const productId = Number(req.params.id);
-  const { quantity: quantityRaw, item_id: itemIdRaw, price: priceRaw } = req.body || {};
+  const {
+    quantity: quantityRaw,
+    item_id: itemIdRaw,
+    item_ids: itemIdsRaw,
+    price: priceRaw,
+  } = req.body || {};
 
   if (!Number.isInteger(productId)) {
     return res.status(400).json({ error: "Invalid product id" });
@@ -287,36 +292,61 @@ async function sellProduct(req, res) {
     }
 
     const unitPrice = parseNumeric(priceRaw, parseNumeric(product.default_price, 0));
-    const itemId = itemIdRaw ? String(itemIdRaw).trim() : "";
     const currentValues = currentIds.map(getIdValue);
+    const singleInput = itemIdRaw ? String(itemIdRaw).trim() : "";
+    const fromSingle = singleInput
+      ? singleInput
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean)
+      : [];
+    const fromArray = Array.isArray(itemIdsRaw)
+      ? itemIdsRaw.map((value) => String(value || "").trim()).filter(Boolean)
+      : [];
+    const requestedIds = [...fromArray, ...fromSingle];
 
-    if (itemId) {
-      const removeIndex = currentValues.findIndex((value) => value === itemId);
+    if (requestedIds.length > 0) {
+      const uniqueRequested = [...new Set(requestedIds)];
 
-      if (removeIndex === -1) {
+      if (uniqueRequested.length !== requestedIds.length) {
         await client.query("ROLLBACK");
-        return res.status(400).json({ error: "ID not found" });
+        return res.status(400).json({ error: "Duplicate IDs in sell request are not allowed" });
       }
 
-      const nextIds = [...currentIds];
-      nextIds.splice(removeIndex, 1);
-      const newStock = product.stock - 1;
+      const missingId = uniqueRequested.find((value) => !currentValues.includes(value));
+
+      if (missingId) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: `ID not found: ${missingId}` });
+      }
+
+      const removeSet = new Set(uniqueRequested);
+      const nextIds = currentIds.filter((item) => !removeSet.has(getIdValue(item)));
+      const soldCount = uniqueRequested.length;
+      const newStock = product.stock - soldCount;
+
+      if (newStock < 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "Not enough stock" });
+      }
 
       await client.query(
         `UPDATE products SET stock = $1, ids = $2::jsonb, updated_at = NOW() WHERE id = $3`,
         [newStock, JSON.stringify(nextIds), productId]
       );
 
-      await logItemReport(client, {
-        productId,
-        itemId,
-        type: "sell",
-        quantity: 1,
-        price: unitPrice,
-        remainingStock: newStock,
-      });
+      for (let index = 0; index < uniqueRequested.length; index += 1) {
+        await logItemReport(client, {
+          productId,
+          itemId: uniqueRequested[index],
+          type: "sell",
+          quantity: 1,
+          price: unitPrice,
+          remainingStock: product.stock - (index + 1),
+        });
+      }
 
-      await logTransaction(client, productId, "sell", unitPrice);
+      await logTransaction(client, productId, "sell", unitPrice * soldCount);
       await client.query("COMMIT");
       return res.json({ ok: true });
     }
