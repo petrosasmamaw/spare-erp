@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { buyProduct, fetchProducts } from "@/lib/features/erpSlice";
+import { buyProduct, fetchFinanceSummary, fetchProducts } from "@/lib/features/erpSlice";
 
 function formatTrackedId(item) {
   if (!item) return "";
@@ -15,15 +15,17 @@ function formatTrackedId(item) {
 
 export default function BuyPage() {
   const dispatch = useDispatch();
-  const { products, actionLoading } = useSelector((state) => state.erp);
+  const { products, actionLoading, financeSummary } = useSelector((state) => state.erp);
 
   const [selectedId, setSelectedId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [idsText, setIdsText] = useState("");
   const [price, setPrice] = useState("");
+  const [paymentSource, setPaymentSource] = useState("credit");
 
   useEffect(() => {
     dispatch(fetchProducts());
+    dispatch(fetchFinanceSummary());
   }, [dispatch]);
 
   const selectedProduct = useMemo(
@@ -42,8 +44,16 @@ export default function BuyPage() {
       .map((idValue) => ({ id: idValue }));
 
     const payload = ids.length
-      ? { ids, price: Number(price || selectedProduct?.default_price || 0) }
-      : { quantity: Number(quantity), price: Number(price || selectedProduct?.default_price || 0) };
+      ? {
+          ids,
+          price: Number(price || selectedProduct?.default_price || 0),
+          payment_source: paymentSource,
+        }
+      : {
+          quantity: Number(quantity),
+          price: Number(price || selectedProduct?.default_price || 0),
+          payment_source: paymentSource,
+        };
 
     await dispatch(buyProduct({ productId: selectedId, payload }));
     setQuantity("1");
@@ -92,6 +102,15 @@ export default function BuyPage() {
             value={price}
             onChange={(e) => setPrice(e.target.value)}
           />
+
+          <select className="input" value={paymentSource} onChange={(e) => setPaymentSource(e.target.value)}>
+            <option value="credit">Buy by Credit</option>
+            <option value="balance">Buy by Balance</option>
+          </select>
+
+          <p className="rounded-2xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            Balance: Rs {Number(financeSummary.balance || 0).toFixed(2)} | Credit: Rs {Number(financeSummary.credit || 0).toFixed(2)}
+          </p>
 
           <button disabled={actionLoading} className="btn-primary" type="submit">
             {actionLoading ? "Processing..." : "Add Purchase"}

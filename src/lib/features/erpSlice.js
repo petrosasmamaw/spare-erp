@@ -15,6 +15,7 @@ export const createProduct = createAsyncThunk("erp/createProduct", async (payloa
   });
 
   await dispatch(fetchProducts());
+  await dispatch(fetchFinanceSummary());
   return true;
 });
 
@@ -24,6 +25,7 @@ export const deleteProduct = createAsyncThunk("erp/deleteProduct", async (produc
   });
 
   await dispatch(fetchProducts());
+  await dispatch(fetchFinanceSummary());
   return true;
 });
 
@@ -34,6 +36,7 @@ export const buyProduct = createAsyncThunk("erp/buyProduct", async ({ productId,
   });
 
   await dispatch(fetchProducts());
+  await dispatch(fetchFinanceSummary());
   return true;
 });
 
@@ -44,6 +47,7 @@ export const sellProduct = createAsyncThunk("erp/sellProduct", async ({ productI
   });
 
   await dispatch(fetchProducts());
+  await dispatch(fetchFinanceSummary());
   return true;
 });
 
@@ -70,10 +74,51 @@ export const fetchDashboard = createAsyncThunk("erp/fetchDashboard", async (rang
   return apiRequest(`/dashboard${query}`);
 });
 
+export const fetchFinanceSummary = createAsyncThunk("erp/fetchFinanceSummary", async () => {
+  return apiRequest("/finance/summary");
+});
+
+export const fetchFinanceReports = createAsyncThunk(
+  "erp/fetchFinanceReports",
+  async ({ range = "all", account = "" } = {}) => {
+    const params = new URLSearchParams();
+    if (range && range !== "all") {
+      params.set("range", range);
+    }
+    if (account) {
+      params.set("account", account);
+    }
+
+    const query = params.toString();
+    return apiRequest(`/finance/reports${query ? `?${query}` : ""}`);
+  }
+);
+
+export const createFinanceEntry = createAsyncThunk(
+  "erp/createFinanceEntry",
+  async (payload, { dispatch }) => {
+    await apiRequest("/finance/entry", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    await dispatch(fetchFinanceSummary());
+    await dispatch(fetchFinanceReports());
+    return true;
+  }
+);
+
 const initialState = {
   products: [],
   reports: [],
   transactions: [],
+  financeReports: [],
+  financeSummary: {
+    balance: 0,
+    credit: 0,
+    profit: 0,
+    stockValue: 0,
+  },
   dashboard: {
     totalSales: 0,
     totalPurchases: 0,
@@ -125,12 +170,25 @@ const erpSlice = createSlice({
       .addCase(fetchDashboard.rejected, (state, action) => {
         state.error = action.error.message || "Failed to load dashboard";
       })
+      .addCase(fetchFinanceSummary.fulfilled, (state, action) => {
+        state.financeSummary = action.payload;
+      })
+      .addCase(fetchFinanceSummary.rejected, (state, action) => {
+        state.error = action.error.message || "Failed to load finance summary";
+      })
+      .addCase(fetchFinanceReports.fulfilled, (state, action) => {
+        state.financeReports = action.payload;
+      })
+      .addCase(fetchFinanceReports.rejected, (state, action) => {
+        state.error = action.error.message || "Failed to load finance reports";
+      })
       .addMatcher(
         (action) =>
           action.type === createProduct.pending.type ||
           action.type === deleteProduct.pending.type ||
           action.type === buyProduct.pending.type ||
-          action.type === sellProduct.pending.type,
+          action.type === sellProduct.pending.type ||
+          action.type === createFinanceEntry.pending.type,
         (state) => {
           state.actionLoading = true;
           state.error = null;
@@ -141,7 +199,8 @@ const erpSlice = createSlice({
           action.type === createProduct.fulfilled.type ||
           action.type === deleteProduct.fulfilled.type ||
           action.type === buyProduct.fulfilled.type ||
-          action.type === sellProduct.fulfilled.type,
+          action.type === sellProduct.fulfilled.type ||
+          action.type === createFinanceEntry.fulfilled.type,
         (state) => {
           state.actionLoading = false;
         }
@@ -151,7 +210,8 @@ const erpSlice = createSlice({
           action.type === createProduct.rejected.type ||
           action.type === deleteProduct.rejected.type ||
           action.type === buyProduct.rejected.type ||
-          action.type === sellProduct.rejected.type,
+          action.type === sellProduct.rejected.type ||
+          action.type === createFinanceEntry.rejected.type,
         (state, action) => {
           state.actionLoading = false;
           state.error = action.error.message || "Action failed";

@@ -1,4 +1,10 @@
-const { getPool, logItemReport, logTransaction, parseNumeric } = require("./erpHelpers");
+const {
+  applyFinanceEntry,
+  getPool,
+  logItemReport,
+  logTransaction,
+  parseNumeric,
+} = require("./erpHelpers");
 
 function normalizeIncomingIds(idsRaw, buyPrice = 0) {
   if (!Array.isArray(idsRaw)) {
@@ -199,7 +205,12 @@ async function deleteProduct(req, res) {
 
 async function buyProduct(req, res) {
   const productId = Number(req.params.id);
-  const { quantity: quantityRaw, ids: idsRaw, price: priceRaw } = req.body || {};
+  const {
+    quantity: quantityRaw,
+    ids: idsRaw,
+    price: priceRaw,
+    payment_source: paymentSourceRaw,
+  } = req.body || {};
 
   if (!Number.isInteger(productId)) {
     return res.status(400).json({ error: "Invalid product id" });
@@ -222,6 +233,13 @@ async function buyProduct(req, res) {
 
     const product = rows[0];
     const unitPrice = parseNumeric(priceRaw, parseNumeric(product.default_price, 0));
+    const paymentSource = String(paymentSourceRaw || "credit").trim().toLowerCase();
+
+    if (paymentSource !== "balance" && paymentSource !== "credit") {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "payment_source must be balance or credit" });
+    }
+
     const currentIds = normalizeStoredIds(product.ids, parseNumeric(product.default_price, 0));
     const trackedBuyIds = normalizeIncomingIds(idsRaw, unitPrice);
     const incomingValues = trackedBuyIds.map(getIdValue);
@@ -248,7 +266,19 @@ async function buyProduct(req, res) {
 
     if (trackedBuyIds.length > 0) {
       const newIds = [...currentIds, ...uniqueIncoming];
-      const newStock = product.stock + uniqueIncoming.length;
+      const purchasedCount = uniqueIncoming.length;
+      const newStock = product.stock + purchasedCount;
+      const purchaseAmount = unitPrice * purchasedCount;
+
+      await applyFinanceEntry(client, {
+        accountType: paymentSource,
+        direction: paymentSource === "balance" ? "out" : "in",
+        amount: purchaseAmount,
+        note: `Buy tracked IDs for product #${productId}`,
+        source: paymentSource === "balance" ? "buy-balance" : "buy-credit",
+        referenceType: "product",
+        referenceId: productId,
+      });
 
       await client.query(
         `UPDATE products SET stock = $1, ids = $2::jsonb, updated_at = NOW() WHERE id = $3`,
@@ -270,7 +300,7 @@ async function buyProduct(req, res) {
         });
       }
 
-      await logTransaction(client, productId, "buy", unitPrice * uniqueIncoming.length);
+      await logTransaction(client, productId, "buy", purchaseAmount);
       await client.query("COMMIT");
       return res.json({ ok: true });
     }
@@ -283,6 +313,17 @@ async function buyProduct(req, res) {
     }
 
     const newStock = product.stock + quantity;
+    const purchaseAmount = unitPrice * quantity;
+
+    await applyFinanceEntry(client, {
+      accountType: paymentSource,
+      direction: paymentSource === "balance" ? "out" : "in",
+      amount: purchaseAmount,
+      note: `Buy quantity for product #${productId}`,
+      source: paymentSource === "balance" ? "buy-balance" : "buy-credit",
+      referenceType: "product",
+      referenceId: productId,
+    });
 
     await client.query(
       `UPDATE products SET stock = $1, updated_at = NOW() WHERE id = $2`,
@@ -301,7 +342,7 @@ async function buyProduct(req, res) {
       remainingStock: newStock,
     });
 
-    await logTransaction(client, productId, "buy", unitPrice * quantity);
+    await logTransaction(client, productId, "buy", purchaseAmount);
     await client.query("COMMIT");
 
     return res.json({ ok: true });
@@ -382,6 +423,7 @@ async function sellProduct(req, res) {
       const nextIds = currentIds.filter((item) => !removeSet.has(getIdValue(item)));
       const soldCount = uniqueRequested.length;
       const newStock = product.stock - soldCount;
+      const saleAmount = unitPrice * soldCount;
 
       if (newStock < 0) {
         await client.query("ROLLBACK");
@@ -392,6 +434,16 @@ async function sellProduct(req, res) {
         `UPDATE products SET stock = $1, ids = $2::jsonb, updated_at = NOW() WHERE id = $3`,
         [newStock, JSON.stringify(nextIds), productId]
       );
+
+      await applyFinanceEntry(client, {
+        accountType: "balance",
+        direction: "in",
+        amount: saleAmount,
+        note: `Sell tracked IDs for product #${productId}`,
+        source: "sell",
+        referenceType: "product",
+        referenceId: productId,
+      });
 
       for (let index = 0; index < uniqueRequested.length; index += 1) {
         const soldId = uniqueRequested[index];
@@ -410,7 +462,7 @@ async function sellProduct(req, res) {
         });
       }
 
-      await logTransaction(client, productId, "sell", unitPrice * soldCount);
+      await logTransaction(client, productId, "sell", saleAmount);
       await client.query("COMMIT");
       return res.json({ ok: true });
     }
@@ -433,11 +485,22 @@ async function sellProduct(req, res) {
     }
 
     const newStock = product.stock - quantity;
+    const saleAmount = unitPrice * quantity;
 
     await client.query(
       `UPDATE products SET stock = $1, updated_at = NOW() WHERE id = $2`,
       [newStock, productId]
     );
+
+    await applyFinanceEntry(client, {
+      accountType: "balance",
+      direction: "in",
+      amount: saleAmount,
+      note: `Sell quantity for product #${productId}`,
+      source: "sell",
+      referenceType: "product",
+      referenceId: productId,
+    });
 
     await logItemReport(client, {
       productId,
@@ -451,7 +514,7 @@ async function sellProduct(req, res) {
       remainingStock: newStock,
     });
 
-    await logTransaction(client, productId, "sell", unitPrice * quantity);
+    await logTransaction(client, productId, "sell", saleAmount);
     await client.query("COMMIT");
     return res.json({ ok: true });
   } catch (_error) {

@@ -10,6 +10,7 @@ const links = [
   { href: "/store", label: "Store" },
   { href: "/buy", label: "Buy" },
   { href: "/sell", label: "Sell" },
+  { href: "/balance", label: "Balance" },
   { href: "/reports", label: "Item Reports" },
 ];
 

@@ -94,6 +94,37 @@ async function initSchema() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS finance_accounts (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      balance NUMERIC(14, 2) NOT NULL DEFAULT 0 CHECK (balance >= 0),
+      credit NUMERIC(14, 2) NOT NULL DEFAULT 0 CHECK (credit >= 0),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    INSERT INTO finance_accounts (id, balance, credit)
+    VALUES (1, 0, 0)
+    ON CONFLICT (id) DO NOTHING;
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS finance_reports (
+      id SERIAL PRIMARY KEY,
+      account_type TEXT NOT NULL CHECK (account_type IN ('balance', 'credit')),
+      direction TEXT NOT NULL CHECK (direction IN ('in', 'out')),
+      amount NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
+      note TEXT,
+      source TEXT,
+      reference_type TEXT,
+      reference_id INTEGER,
+      balance_after NUMERIC(14, 2) NOT NULL CHECK (balance_after >= 0),
+      credit_after NUMERIC(14, 2) NOT NULL CHECK (credit_after >= 0),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_item_reports_product_id ON item_reports(product_id);
   `);
 
@@ -103,6 +134,10 @@ async function initSchema() {
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at);
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_finance_reports_created_at ON finance_reports(created_at);
   `);
 }
 
