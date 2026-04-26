@@ -2,6 +2,15 @@ import Image from "next/image";
 
 const fallbackImage = "https://picsum.photos/seed/spare-erp/900/600";
 
+function formatId(item) {
+  if (!item) return "";
+
+  const idValue = item.id || "";
+  const buyPrice = Number(item.buy_price || 0);
+
+  return buyPrice > 0 ? `${idValue} (Rs ${buyPrice.toFixed(2)})` : idValue;
+}
+
 export default function ProductCard({ product, onDelete, deleting = false }) {
   const tracked = Array.isArray(product.ids) && product.ids.length > 0;
 
@@ -37,7 +46,7 @@ export default function ProductCard({ product, onDelete, deleting = false }) {
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">IDs</p>
           <p className="max-h-16 overflow-auto text-sm text-slate-700">
             {tracked
-              ? product.ids.map((item) => item?.id).filter(Boolean).join(", ")
+              ? product.ids.map(formatId).filter(Boolean).join(", ")
               : "No item IDs for this product"}
           </p>
         </div>

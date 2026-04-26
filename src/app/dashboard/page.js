@@ -33,7 +33,7 @@ export default function DashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total Sales" value={asCurrency(dashboard.totalSales)} accent="from-teal-400 to-cyan-500" />
-        <StatCard label="Total Purchases" value={asCurrency(dashboard.totalPurchases)} accent="from-amber-400 to-orange-500" />
+        <StatCard label="Total Cost" value={asCurrency(dashboard.totalCost ?? dashboard.totalPurchases)} accent="from-amber-400 to-orange-500" />
         <StatCard label="Profit" value={asCurrency(dashboard.profit)} accent="from-fuchsia-400 to-pink-500" />
         <StatCard label="Current Stock" value={dashboard.currentStock} accent="from-indigo-400 to-blue-500" />
       </div>

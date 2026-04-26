@@ -4,6 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { buyProduct, fetchProducts } from "@/lib/features/erpSlice";
 
+function formatTrackedId(item) {
+  if (!item) return "";
+
+  const idValue = item.id || "";
+  const buyPrice = Number(item.buy_price || 0);
+
+  return buyPrice > 0 ? `${idValue} (Rs ${buyPrice.toFixed(2)})` : idValue;
+}
+
 export default function BuyPage() {
   const dispatch = useDispatch();
   const { products, actionLoading } = useSelector((state) => state.erp);
@@ -102,7 +111,7 @@ export default function BuyPage() {
             <p>
               <strong>IDs:</strong>{" "}
               {selectedProduct.ids?.length
-                ? selectedProduct.ids.map((item) => item?.id).filter(Boolean).join(", ")
+                ? selectedProduct.ids.map(formatTrackedId).filter(Boolean).join(", ")
                 : "Bulk item"}
             </p>
           </div>

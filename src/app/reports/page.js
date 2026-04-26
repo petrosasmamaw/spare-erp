@@ -68,7 +68,9 @@ export default function ReportsPage() {
                 <th className="pb-3">Type</th>
                 <th className="pb-3">Item ID</th>
                 <th className="pb-3">Quantity</th>
-                <th className="pb-3">Price</th>
+                <th className="pb-3">Buy Price</th>
+                <th className="pb-3">Sell Price</th>
+                <th className="pb-3">Profit</th>
                 <th className="pb-3">Remaining Stock</th>
               </tr>
             </thead>
@@ -80,13 +82,15 @@ export default function ReportsPage() {
                   <td className="py-3 capitalize">{row.type}</td>
                   <td className="py-3">{row.item_id || "-"}</td>
                   <td className="py-3">{row.quantity}</td>
-                  <td className="py-3">Rs {Number(row.price || 0).toFixed(2)}</td>
+                  <td className="py-3">Rs {Number(row.buy_price || 0).toFixed(2)}</td>
+                  <td className="py-3">{row.sell_price == null ? "-" : `Rs ${Number(row.sell_price || 0).toFixed(2)}`}</td>
+                  <td className="py-3 font-semibold">Rs {Number(row.profit || 0).toFixed(2)}</td>
                   <td className="py-3">{row.remaining_stock}</td>
                 </tr>
               ))}
               {reports.length === 0 ? (
                 <tr>
-                  <td className="py-4 text-slate-500" colSpan={7}>No reports found.</td>
+                  <td className="py-4 text-slate-500" colSpan={9}>No reports found.</td>
                 </tr>
               ) : null}
             </tbody>

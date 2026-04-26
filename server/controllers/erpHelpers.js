@@ -34,14 +34,34 @@ async function logTransaction(client, productId, type, amount) {
 
 async function logItemReport(
   client,
-  { productId, itemId, type, quantity, price, remainingStock }
+  { productId, itemId, type, quantity, buyPrice, sellPrice, price, profit, remainingStock }
 ) {
   await client.query(
     `
-      INSERT INTO item_reports (product_id, item_id, type, quantity, price, remaining_stock)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO item_reports (
+        product_id,
+        item_id,
+        type,
+        quantity,
+        buy_price,
+        sell_price,
+        price,
+        profit,
+        remaining_stock
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `,
-    [productId, itemId || null, type, quantity, price, remainingStock]
+    [
+      productId,
+      itemId || null,
+      type,
+      quantity,
+      buyPrice ?? null,
+      sellPrice ?? null,
+      price ?? null,
+      profit ?? 0,
+      remainingStock,
+    ]
   );
 }
 

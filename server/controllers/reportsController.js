@@ -29,7 +29,10 @@ async function getItemReports(req, res) {
           ir.item_id,
           ir.type,
           ir.quantity,
+          ir.buy_price,
+          ir.sell_price,
           ir.price,
+          ir.profit,
           ir.remaining_stock,
           ir.created_at
         FROM item_reports ir

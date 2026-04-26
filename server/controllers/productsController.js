@@ -1,6 +1,6 @@
 const { getPool, logItemReport, logTransaction, parseNumeric } = require("./erpHelpers");
 
-function normalizeIncomingIds(idsRaw) {
+function normalizeIncomingIds(idsRaw, buyPrice = 0) {
   if (!Array.isArray(idsRaw)) {
     return [];
   }
@@ -14,10 +14,10 @@ function normalizeIncomingIds(idsRaw) {
       return String(value || "").trim();
     })
     .filter(Boolean)
-    .map((idValue) => ({ id: idValue }));
+    .map((idValue) => ({ id: idValue, buy_price: buyPrice }));
 }
 
-function normalizeStoredIds(idsRaw) {
+function normalizeStoredIds(idsRaw, fallbackBuyPrice = 0) {
   if (!Array.isArray(idsRaw)) {
     return [];
   }
@@ -25,13 +25,18 @@ function normalizeStoredIds(idsRaw) {
   return idsRaw
     .map((value) => {
       if (value && typeof value === "object") {
-        return String(value.id || "").trim();
+        return {
+          id: String(value.id || "").trim(),
+          buy_price: parseNumeric(value.buy_price, fallbackBuyPrice),
+        };
       }
 
-      return String(value || "").trim();
+      return {
+        id: String(value || "").trim(),
+        buy_price: fallbackBuyPrice,
+      };
     })
-    .filter(Boolean)
-    .map((idValue) => ({ id: idValue }));
+    .filter((item) => Boolean(item.id));
 }
 
 function getIdValue(item) {
@@ -80,10 +85,10 @@ async function createProduct(req, res) {
   }
 
   const defaultPrice = parseNumeric(defaultPriceRaw, -1);
-  const ids = normalizeIncomingIds(idsRaw);
+  const ids = normalizeIncomingIds(idsRaw, defaultPrice);
   const idValues = ids.map(getIdValue);
   const uniqueValues = [...new Set(idValues)];
-  const uniqueIds = uniqueValues.map((idValue) => ({ id: idValue }));
+  const uniqueIds = uniqueValues.map((idValue) => ({ id: idValue, buy_price: defaultPrice }));
 
   if (ids.length !== uniqueIds.length) {
     return res.status(400).json({ error: "Duplicate IDs are not allowed" });
@@ -168,11 +173,12 @@ async function buyProduct(req, res) {
     }
 
     const product = rows[0];
-    const currentIds = normalizeStoredIds(product.ids);
-    const trackedBuyIds = normalizeIncomingIds(idsRaw);
+    const unitPrice = parseNumeric(priceRaw, parseNumeric(product.default_price, 0));
+    const currentIds = normalizeStoredIds(product.ids, parseNumeric(product.default_price, 0));
+    const trackedBuyIds = normalizeIncomingIds(idsRaw, unitPrice);
     const incomingValues = trackedBuyIds.map(getIdValue);
     const uniqueIncomingValues = [...new Set(incomingValues)];
-    const uniqueIncoming = uniqueIncomingValues.map((idValue) => ({ id: idValue }));
+    const uniqueIncoming = uniqueIncomingValues.map((idValue) => ({ id: idValue, buy_price: unitPrice }));
 
     if (trackedBuyIds.length !== uniqueIncoming.length) {
       await client.query("ROLLBACK");
@@ -186,8 +192,6 @@ async function buyProduct(req, res) {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: `Duplicate ID: ${getIdValue(duplicateExisting)}` });
     }
-
-    const unitPrice = parseNumeric(priceRaw, parseNumeric(product.default_price, 0));
 
     if (currentIds.length > 0 && trackedBuyIds.length === 0) {
       await client.query("ROLLBACK");
@@ -210,7 +214,10 @@ async function buyProduct(req, res) {
           itemId: idValue,
           type: "buy",
           quantity: 1,
+          buyPrice: unitPrice,
+          sellPrice: null,
           price: unitPrice,
+          profit: 0,
           remainingStock: product.stock + index + 1,
         });
       }
@@ -239,7 +246,10 @@ async function buyProduct(req, res) {
       itemId: null,
       type: "buy",
       quantity,
+      buyPrice: unitPrice,
+      sellPrice: null,
       price: unitPrice,
+      profit: 0,
       remainingStock: newStock,
     });
 
@@ -284,7 +294,7 @@ async function sellProduct(req, res) {
     }
 
     const product = rows[0];
-    const currentIds = normalizeStoredIds(product.ids);
+    const currentIds = normalizeStoredIds(product.ids, parseNumeric(product.default_price, 0));
 
     if (product.stock <= 0) {
       await client.query("ROLLBACK");
@@ -336,12 +346,18 @@ async function sellProduct(req, res) {
       );
 
       for (let index = 0; index < uniqueRequested.length; index += 1) {
+        const soldId = uniqueRequested[index];
+        const matchedItem = currentIds.find((item) => getIdValue(item) === soldId);
+        const buyPrice = parseNumeric(matchedItem?.buy_price, parseNumeric(product.default_price, 0));
         await logItemReport(client, {
           productId,
-          itemId: uniqueRequested[index],
+          itemId: soldId,
           type: "sell",
           quantity: 1,
+          buyPrice,
+          sellPrice: unitPrice,
           price: unitPrice,
+          profit: unitPrice - buyPrice,
           remainingStock: product.stock - (index + 1),
         });
       }
@@ -380,7 +396,10 @@ async function sellProduct(req, res) {
       itemId: null,
       type: "sell",
       quantity,
+      buyPrice: 0,
+      sellPrice: unitPrice,
       price: unitPrice,
+      profit: 0,
       remainingStock: newStock,
     });
 

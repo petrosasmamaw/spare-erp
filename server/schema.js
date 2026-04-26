@@ -15,33 +15,47 @@ async function initSchema() {
     );
   `);
 
+  const idsColumn = await pool.query(`
+    SELECT data_type
+    FROM information_schema.columns
+    WHERE table_name = 'products' AND column_name = 'ids'
+    LIMIT 1
+  `);
+
+  if (idsColumn.rows[0]?.data_type !== 'jsonb') {
+    await pool.query(`ALTER TABLE products ALTER COLUMN ids DROP DEFAULT;`);
+    await pool.query(`ALTER TABLE products ALTER COLUMN ids TYPE JSONB USING to_jsonb(ids);`);
+  }
+
   await pool.query(`
-    DO $$
-    DECLARE
-      ids_type TEXT;
-    BEGIN
-      SELECT data_type INTO ids_type
-      FROM information_schema.columns
-      WHERE table_name = 'products' AND column_name = 'ids';
-
-      IF ids_type <> 'jsonb' THEN
-        ALTER TABLE products
-        ALTER COLUMN ids DROP DEFAULT;
-
-        ALTER TABLE products
-        ALTER COLUMN ids TYPE JSONB
-        USING to_jsonb(ids);
-
-        UPDATE products
-        SET ids = COALESCE(
-          (
-            SELECT jsonb_agg(jsonb_build_object('id', item))
-            FROM jsonb_array_elements_text(ids) AS item
-          ),
-          '[]'::jsonb
-        );
-      END IF;
-    END $$;
+    UPDATE products
+    SET ids = COALESCE(
+      (
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id',
+            CASE
+              WHEN jsonb_typeof(item) = 'object' THEN item->>'id'
+              ELSE item #>> '{}'
+            END,
+            'buy_price',
+            COALESCE(
+              NULLIF(
+                CASE
+                  WHEN jsonb_typeof(item) = 'object' THEN item->>'buy_price'
+                  ELSE NULL
+                END,
+                ''
+              )::numeric,
+              default_price
+            )
+          )
+        )
+        FROM jsonb_array_elements(COALESCE(ids, '[]'::jsonb)) AS item
+      ),
+      '[]'::jsonb
+    )
+    WHERE jsonb_array_length(COALESCE(ids, '[]'::jsonb)) > 0;
   `);
 
   await pool.query(`
@@ -56,11 +70,18 @@ async function initSchema() {
       item_id TEXT,
       type TEXT NOT NULL CHECK (type IN ('buy', 'sell')),
       quantity INTEGER NOT NULL CHECK (quantity > 0),
+      buy_price NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (buy_price >= 0),
+      sell_price NUMERIC(12, 2),
       price NUMERIC(12, 2) NOT NULL CHECK (price >= 0),
+      profit NUMERIC(12, 2) NOT NULL DEFAULT 0,
       remaining_stock INTEGER NOT NULL CHECK (remaining_stock >= 0),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+
+  await pool.query(`ALTER TABLE item_reports ADD COLUMN IF NOT EXISTS buy_price NUMERIC(12, 2) NOT NULL DEFAULT 0;`);
+  await pool.query(`ALTER TABLE item_reports ADD COLUMN IF NOT EXISTS sell_price NUMERIC(12, 2);`);
+  await pool.query(`ALTER TABLE item_reports ADD COLUMN IF NOT EXISTS profit NUMERIC(12, 2) NOT NULL DEFAULT 0;`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS transactions (
