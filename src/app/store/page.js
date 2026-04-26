@@ -4,12 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import ProductCard from "@/components/ProductCard";
 import { clearError, createProduct, deleteProduct, fetchProducts } from "@/lib/features/erpSlice";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const defaultImage = "https://picsum.photos/seed/spare-store/900/600";
 
 export default function StorePage() {
   const dispatch = useDispatch();
   const { products, loading, actionLoading, error } = useSelector((state) => state.erp);
+  const { t } = useLanguage();
 
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({
@@ -64,7 +66,7 @@ export default function StorePage() {
   }
 
   async function handleDelete(product) {
-    const confirmed = window.confirm(`Delete ${product.name}? This cannot be undone.`);
+    const confirmed = window.confirm(t("store.deleteConfirm", { name: product.name }));
     if (!confirmed) {
       return;
     }
@@ -79,27 +81,27 @@ export default function StorePage() {
           onSubmit={onSubmit}
           className="rounded-3xl border border-white/80 bg-white/90 p-5 shadow-lg shadow-amber-100/40"
         >
-          <h2 className="font-display text-2xl">Add Product</h2>
-          <p className="mt-1 text-sm text-slate-600">Create tracked or bulk products from one form.</p>
+          <h2 className="font-display text-2xl">{t("store.addProduct")}</h2>
+          <p className="mt-1 text-sm text-slate-600">{t("store.subtitle")}</p>
 
           <div className="mt-4 grid gap-3">
             <input
               className="input"
-              placeholder="Product name"
+              placeholder={t("store.productName")}
               value={form.name}
               onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
               required
             />
             <input
               className="input"
-              placeholder="Category"
+              placeholder={t("store.category")}
               value={form.category}
               onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
               required
             />
             <input
               className="input"
-              placeholder="Stock (optional when IDs are set)"
+              placeholder={t("store.stockOptional")}
               type="number"
               min="0"
               value={form.stock}
@@ -107,7 +109,7 @@ export default function StorePage() {
             />
             <input
               className="input"
-              placeholder="Default price"
+              placeholder={t("store.defaultPrice")}
               type="number"
               min="0"
               step="0.01"
@@ -117,30 +119,30 @@ export default function StorePage() {
             />
             <input
               className="input"
-              placeholder="IDs (comma separated, e.g. 001,002,003)"
+              placeholder={t("store.idsInput")}
               value={form.idsText}
               onChange={(e) => setForm((prev) => ({ ...prev, idsText: e.target.value }))}
             />
             <input
               className="input"
-              placeholder="Image URL"
+              placeholder={t("store.imageUrl")}
               value={form.image_url}
               onChange={(e) => setForm((prev) => ({ ...prev, image_url: e.target.value }))}
             />
             <button className="btn-primary" disabled={actionLoading} type="submit">
-              {actionLoading ? "Saving..." : "Create Product"}
+              {actionLoading ? t("store.saving") : t("store.createProduct")}
             </button>
           </div>
         </form>
 
         <div className="rounded-3xl border border-white/80 bg-white/70 p-5 shadow-lg shadow-slate-200/60">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-display text-2xl">Product Inventory</h2>
+            <h2 className="font-display text-2xl">{t("store.inventory")}</h2>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input max-w-xs"
-              placeholder="Search by name/category"
+              placeholder={t("store.search")}
             />
           </div>
 
@@ -153,16 +155,16 @@ export default function StorePage() {
                   className="rounded-full bg-white px-3 py-1 text-xs font-semibold"
                   onClick={() => dispatch(clearError())}
                 >
-                  Close
+                  {t("common.close")}
                 </button>
               </div>
             </div>
           ) : null}
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {loading ? <p className="text-sm text-slate-600">Loading products...</p> : null}
+            {loading ? <p className="text-sm text-slate-600">{t("store.loadingProducts")}</p> : null}
             {!loading && filteredProducts.length === 0 ? (
-              <p className="text-sm text-slate-600">No products found.</p>
+              <p className="text-sm text-slate-600">{t("store.noProducts")}</p>
             ) : null}
             {filteredProducts.map((product) => (
               <ProductCard

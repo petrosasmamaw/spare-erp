@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchProducts, sellProduct } from "@/lib/features/erpSlice";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 function formatTrackedId(item) {
   if (!item) return "";
@@ -16,6 +17,7 @@ function formatTrackedId(item) {
 export default function SellPage() {
   const dispatch = useDispatch();
   const { products, actionLoading } = useSelector((state) => state.erp);
+  const { t } = useLanguage();
 
   const [selectedId, setSelectedId] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -53,12 +55,12 @@ export default function SellPage() {
   return (
     <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
       <form onSubmit={onSubmit} className="rounded-3xl border border-white/80 bg-white/90 p-5 shadow-lg shadow-rose-100/60">
-        <h2 className="font-display text-2xl">Sell Items</h2>
-        <p className="mt-1 text-sm text-slate-600">Sell one or many IDs (comma separated) for tracked products, or quantity for bulk items.</p>
+        <h2 className="font-display text-2xl">{t("sell.title")}</h2>
+        <p className="mt-1 text-sm text-slate-600">{t("sell.subtitle")}</p>
 
         <div className="mt-4 grid gap-3">
           <select className="input" value={selectedId} onChange={(e) => setSelectedId(e.target.value)} required>
-            <option value="">Select product</option>
+            <option value="">{t("sell.selectProduct")}</option>
             {products.map((product) => (
               <option key={product.id} value={product.id}>
                 {product.name} ({product.category})
@@ -70,14 +72,14 @@ export default function SellPage() {
             className="input"
             type="number"
             min="1"
-            placeholder="Quantity (bulk mode)"
+            placeholder={t("sell.quantityBulk")}
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
           />
 
           <input
             className="input"
-            placeholder="Item IDs (tracked mode: 001 or 001,002)"
+            placeholder={t("sell.idsTracked")}
             value={itemId}
             onChange={(e) => setItemId(e.target.value)}
           />
@@ -87,33 +89,33 @@ export default function SellPage() {
             type="number"
             min="0"
             step="0.01"
-            placeholder="Sell price (optional)"
+            placeholder={t("sell.sellPrice")}
             value={price}
             onChange={(e) => setPrice(e.target.value)}
           />
 
           <button disabled={actionLoading} className="btn-primary" type="submit">
-            {actionLoading ? "Processing..." : "Process Sale"}
+            {actionLoading ? t("sell.processing") : t("sell.processSale")}
           </button>
         </div>
       </form>
 
       <div className="rounded-3xl border border-white/80 bg-white/85 p-5 shadow-lg shadow-slate-200/60">
-        <h3 className="font-display text-xl">Sale Rules</h3>
+        <h3 className="font-display text-xl">{t("sell.rulesTitle")}</h3>
         <ul className="mt-3 space-y-2 text-sm text-slate-700">
-          <li>1. Selling with item ID validates that the ID exists.</li>
-          <li>2. Selling by quantity checks stock and blocks negative values.</li>
-          <li>3. Each sale creates both transaction and item report records.</li>
+          <li>{t("sell.rule1")}</li>
+          <li>{t("sell.rule2")}</li>
+          <li>{t("sell.rule3")}</li>
         </ul>
 
         {selectedProduct ? (
           <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
-            <p><strong>Stock:</strong> {selectedProduct.stock}</p>
+            <p><strong>{t("common.stock")}:</strong> {selectedProduct.stock}</p>
             <p>
-              <strong>Tracked IDs:</strong>{" "}
+              <strong>{t("sell.trackedIds")}:</strong>{" "}
               {selectedProduct.ids?.length
                 ? selectedProduct.ids.map(formatTrackedId).filter(Boolean).join(", ")
-                : "No IDs"}
+                : t("sell.noIds")}
             </p>
           </div>
         ) : null}

@@ -3,20 +3,21 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-
-const links = [
-  { href: "/", label: "Home" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/store", label: "Store" },
-  { href: "/buy", label: "Buy" },
-  { href: "/sell", label: "Sell" },
-  { href: "/balance", label: "Balance" },
-  { href: "/reports", label: "Item Reports" },
-];
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { language, setLanguage, t } = useLanguage();
+
+  const links = [
+    { href: "/dashboard", label: t("nav.dashboard") },
+    { href: "/store", label: t("nav.store") },
+    { href: "/buy", label: t("nav.buy") },
+    { href: "/sell", label: t("nav.sell") },
+    { href: "/balance", label: t("nav.balance") },
+    { href: "/reports", label: t("nav.reports") },
+  ];
 
   const isActive = (href) => {
     if (href === "/") {
@@ -38,25 +39,46 @@ export default function AppShell({ children }) {
                 S
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Spare ERP</p>
-                <h1 className="font-display text-2xl leading-tight text-slate-900 md:text-3xl">Inventory Intelligence Panel</h1>
+                <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">{t("nav.appName")}</p>
+                <h1 className="font-display text-2xl leading-tight text-slate-900 md:text-3xl">{t("nav.panelTitle")}</h1>
               </div>
             </div>
 
-            <button
-              type="button"
-              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm md:hidden"
-              onClick={() => setMenuOpen((prev) => !prev)}
-            >
-              {menuOpen ? "Close" : "Menu"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm md:inline-flex"
+                onClick={() => setLanguage((prev) => (prev === "en" ? "amh" : "en"))}
+                aria-label={t("nav.language")}
+              >
+                {language === "en" ? t("nav.amharic") : t("nav.english")}
+              </button>
+
+              <button
+                type="button"
+                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm md:hidden"
+                onClick={() => setMenuOpen((prev) => !prev)}
+              >
+                {menuOpen ? t("nav.close") : t("nav.menu")}
+              </button>
+            </div>
           </div>
 
           <p className="mt-3 hidden max-w-2xl text-sm text-slate-600 md:block">
-            Real-time stock, transaction history, and item-level reports for tracked and bulk products.
+            {t("nav.panelSubtitle")}
           </p>
 
           <nav className={`mt-4 ${menuOpen ? "block" : "hidden"} md:block`}>
+            <div className="mb-3 md:hidden">
+              <button
+                type="button"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm"
+                onClick={() => setLanguage((prev) => (prev === "en" ? "amh" : "en"))}
+                aria-label={t("nav.language")}
+              >
+                {language === "en" ? t("nav.amharic") : t("nav.english")}
+              </button>
+            </div>
             <div className="flex flex-wrap gap-2 md:gap-2.5">
             {links.map((item) => {
               const active = isActive(item.href);

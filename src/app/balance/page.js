@@ -9,6 +9,7 @@ import {
   fetchSupplierCredits,
   paySupplierCredit,
 } from "@/lib/features/erpSlice";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 function asCurrency(value) {
   return `Rs ${Number(value || 0).toFixed(2)}`;
@@ -17,6 +18,7 @@ function asCurrency(value) {
 export default function BalancePage() {
   const dispatch = useDispatch();
   const { financeSummary, financeReports, supplierCredits, actionLoading } = useSelector((state) => state.erp);
+  const { t } = useLanguage();
 
   const [range, setRange] = useState("all");
   const [accountFilter, setAccountFilter] = useState("");
@@ -67,7 +69,7 @@ export default function BalancePage() {
       paySupplierCredit({
         supplier_name: supplierName,
         amount,
-        note: `Credit payment to ${supplierName}`,
+        note: t("balance.payCreditNote", { supplier: supplierName }),
       })
     );
 
@@ -79,7 +81,7 @@ export default function BalancePage() {
     <section className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <article className="rounded-3xl border border-emerald-200 bg-white/90 p-4 shadow-lg shadow-emerald-100/60">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Balance</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t("common.balance")}</p>
           <p className="mt-2 font-display text-3xl text-emerald-700">{asCurrency(financeSummary.balance)}</p>
         </article>
         <article
@@ -94,20 +96,20 @@ export default function BalancePage() {
             }
           }}
         >
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Credit</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t("common.credit")}</p>
           <p className="mt-2 font-display text-3xl text-amber-700">{asCurrency(financeSummary.credit)}</p>
-          <p className="mt-2 text-xs text-slate-500">Click to view supplier credits</p>
+          <p className="mt-2 text-xs text-slate-500">{t("balance.creditHint")}</p>
         </article>
         <article className="rounded-3xl border border-fuchsia-200 bg-white/90 p-4 shadow-lg shadow-fuchsia-100/60">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Profit</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t("dashboard.profit")}</p>
           <p className="mt-2 font-display text-3xl text-fuchsia-700">{asCurrency(financeSummary.profit)}</p>
         </article>
         <article className="rounded-3xl border border-indigo-200 bg-white/90 p-4 shadow-lg shadow-indigo-100/60">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Stock Value</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t("balance.stockValue")}</p>
           <p className="mt-2 font-display text-3xl text-indigo-700">{asCurrency(financeSummary.stockValue)}</p>
         </article>
         <article className="rounded-3xl border border-cyan-200 bg-white/90 p-4 shadow-lg shadow-cyan-100/60">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Net Position (Balance + Stock - Credit)</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t("balance.netPosition")}</p>
           <p className="mt-2 font-display text-3xl text-cyan-700">
             {asCurrency(
               Number(financeSummary.balance || 0) +
@@ -120,17 +122,17 @@ export default function BalancePage() {
 
       {showSupplierCredits ? (
         <article className="rounded-3xl border border-amber-200 bg-white/90 p-5 shadow-lg shadow-amber-100/60">
-          <h2 className="font-display text-2xl">Supplier Credit List</h2>
-          <p className="mt-1 text-sm text-slate-600">Only suppliers with outstanding credit are shown.</p>
+          <h2 className="font-display text-2xl">{t("balance.supplierCreditList")}</h2>
+          <p className="mt-1 text-sm text-slate-600">{t("balance.supplierCreditHint")}</p>
 
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-xs uppercase tracking-[0.2em] text-slate-500">
-                  <th className="pb-3">Supplier</th>
-                  <th className="pb-3">Outstanding Credit</th>
-                  <th className="pb-3">Pay Amount</th>
-                  <th className="pb-3">Action</th>
+                  <th className="pb-3">{t("balance.supplier")}</th>
+                  <th className="pb-3">{t("balance.outstandingCredit")}</th>
+                  <th className="pb-3">{t("balance.payAmount")}</th>
+                  <th className="pb-3">{t("balance.action")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -144,7 +146,7 @@ export default function BalancePage() {
                         type="number"
                         min="0.01"
                         step="0.01"
-                        placeholder="Amount"
+                        placeholder={t("common.amount")}
                         value={payAmounts[row.supplier_name] || ""}
                         onChange={(e) =>
                           setPayAmounts((prev) => ({
@@ -161,14 +163,14 @@ export default function BalancePage() {
                         onClick={() => onPayCredit(row.supplier_name)}
                         disabled={actionLoading}
                       >
-                        {actionLoading ? "Paying..." : "Pay Credit"}
+                        {actionLoading ? t("balance.paying") : t("balance.payCredit")}
                       </button>
                     </td>
                   </tr>
                 ))}
                 {supplierCredits.length === 0 ? (
                   <tr>
-                    <td className="py-4 text-slate-500" colSpan={4}>No outstanding supplier credits.</td>
+                    <td className="py-4 text-slate-500" colSpan={4}>{t("balance.noOutstanding")}</td>
                   </tr>
                 ) : null}
               </tbody>
@@ -182,8 +184,8 @@ export default function BalancePage() {
           onSubmit={onSubmit}
           className="rounded-3xl border border-white/80 bg-white/90 p-5 shadow-lg shadow-slate-200/60"
         >
-          <h2 className="font-display text-2xl">Add / Out Entry</h2>
-          <p className="mt-1 text-sm text-slate-600">Record manual balance or credit movement.</p>
+          <h2 className="font-display text-2xl">{t("balance.addOutEntry")}</h2>
+          <p className="mt-1 text-sm text-slate-600">{t("balance.addOutSubtitle")}</p>
 
           <div className="mt-4 grid gap-3">
             <select
@@ -197,8 +199,8 @@ export default function BalancePage() {
                 }))
               }
             >
-              <option value="balance">Balance</option>
-              <option value="credit">Credit</option>
+              <option value="balance">{t("common.balance")}</option>
+              <option value="credit">{t("common.credit")}</option>
             </select>
 
             <select
@@ -206,8 +208,8 @@ export default function BalancePage() {
               value={form.direction}
               onChange={(e) => setForm((prev) => ({ ...prev, direction: e.target.value }))}
             >
-              <option value="in">Add (In)</option>
-              <option value="out">Out</option>
+              <option value="in">{t("balance.addIn")}</option>
+              <option value="out">{t("balance.out")}</option>
             </select>
 
             <input
@@ -215,7 +217,7 @@ export default function BalancePage() {
               type="number"
               min="0.01"
               step="0.01"
-              placeholder="Amount"
+              placeholder={t("common.amount")}
               value={form.amount}
               onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
               required
@@ -224,7 +226,7 @@ export default function BalancePage() {
             {form.account_type === "credit" ? (
               <input
                 className="input"
-                placeholder="Supplier name"
+                placeholder={t("balance.supplierName")}
                 value={form.supplier_name}
                 onChange={(e) => setForm((prev) => ({ ...prev, supplier_name: e.target.value }))}
                 required
@@ -233,13 +235,13 @@ export default function BalancePage() {
 
             <input
               className="input"
-              placeholder="Note (optional)"
+              placeholder={t("balance.noteOptional")}
               value={form.note}
               onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))}
             />
 
             <button type="submit" className="btn-primary" disabled={actionLoading}>
-              {actionLoading ? "Saving..." : "Save Entry"}
+              {actionLoading ? t("balance.saving") : t("balance.saveEntry")}
             </button>
           </div>
         </form>
@@ -247,19 +249,19 @@ export default function BalancePage() {
         <article className="rounded-3xl border border-white/80 bg-white/90 p-5 shadow-lg shadow-slate-200/60">
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Filters</p>
-              <h2 className="font-display text-2xl">Balance & Credit Reports</h2>
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t("balance.filters")}</p>
+              <h2 className="font-display text-2xl">{t("balance.reportsTitle")}</h2>
             </div>
             <select className="input max-w-[180px]" value={range} onChange={(e) => setRange(e.target.value)}>
-              <option value="all">All time</option>
-              <option value="today">Today</option>
-              <option value="7d">7 days</option>
-              <option value="30d">30 days</option>
+              <option value="all">{t("reports.allTime")}</option>
+              <option value="today">{t("reports.today")}</option>
+              <option value="7d">{t("reports.sevenDays")}</option>
+              <option value="30d">{t("reports.thirtyDays")}</option>
             </select>
             <select className="input max-w-[180px]" value={accountFilter} onChange={(e) => setAccountFilter(e.target.value)}>
-              <option value="">All accounts</option>
-              <option value="balance">Balance</option>
-              <option value="credit">Credit</option>
+              <option value="">{t("common.allAccounts")}</option>
+              <option value="balance">{t("common.balance")}</option>
+              <option value="credit">{t("common.credit")}</option>
             </select>
           </div>
 
@@ -267,23 +269,23 @@ export default function BalancePage() {
             <table className="w-full min-w-[900px] text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-xs uppercase tracking-[0.2em] text-slate-500">
-                  <th className="pb-3">Ethiopian Date</th>
-                  <th className="pb-3">Account</th>
-                  <th className="pb-3">Direction</th>
-                  <th className="pb-3">Amount</th>
-                  <th className="pb-3">Supplier</th>
-                  <th className="pb-3">Source</th>
-                  <th className="pb-3">Note</th>
-                  <th className="pb-3">Balance After</th>
-                  <th className="pb-3">Credit After</th>
+                  <th className="pb-3">{t("common.ethiopianDate")}</th>
+                  <th className="pb-3">{t("balance.account")}</th>
+                  <th className="pb-3">{t("balance.direction")}</th>
+                  <th className="pb-3">{t("common.amount")}</th>
+                  <th className="pb-3">{t("balance.supplier")}</th>
+                  <th className="pb-3">{t("common.source")}</th>
+                  <th className="pb-3">{t("common.note")}</th>
+                  <th className="pb-3">{t("balance.balanceAfter")}</th>
+                  <th className="pb-3">{t("balance.creditAfter")}</th>
                 </tr>
               </thead>
               <tbody>
                 {financeReports.map((row) => (
                   <tr key={row.id} className="border-b border-slate-100">
                     <td className="py-3">{row.ethiopian_date || "-"}</td>
-                    <td className="py-3 capitalize">{row.account_type}</td>
-                    <td className="py-3 uppercase">{row.direction}</td>
+                    <td className="py-3 capitalize">{row.account_type === "balance" ? t("balance.accountBalance") : t("balance.accountCredit")}</td>
+                    <td className="py-3 uppercase">{row.direction === "in" ? t("common.in") : t("common.out")}</td>
                     <td className="py-3">{asCurrency(row.amount)}</td>
                     <td className="py-3">{row.supplier_name || "-"}</td>
                     <td className="py-3">{row.source || "-"}</td>
@@ -294,7 +296,7 @@ export default function BalancePage() {
                 ))}
                 {financeReports.length === 0 ? (
                   <tr>
-                    <td className="py-4 text-slate-500" colSpan={9}>No balance/credit reports found.</td>
+                    <td className="py-4 text-slate-500" colSpan={9}>{t("balance.noReports")}</td>
                   </tr>
                 ) : null}
               </tbody>

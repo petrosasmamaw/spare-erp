@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const fallbackImage = "https://picsum.photos/seed/spare-erp/900/600";
 
@@ -13,6 +14,7 @@ function formatId(item) {
 
 export default function ProductCard({ product, onDelete, deleting = false }) {
   const tracked = Array.isArray(product.ids) && product.ids.length > 0;
+  const { t } = useLanguage();
 
   return (
     <article className="group overflow-hidden rounded-3xl border border-white/70 bg-white/90 shadow-md shadow-slate-200/70">
@@ -31,23 +33,23 @@ export default function ProductCard({ product, onDelete, deleting = false }) {
       </div>
       <div className="space-y-3 p-4">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-600">Stock</span>
+          <span className="text-slate-600">{t("productCard.stock")}</span>
           <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-900">{product.stock}</span>
         </div>
         <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-600">Default Price</span>
+          <span className="text-slate-600">{t("productCard.defaultPrice")}</span>
           <span className="font-semibold text-slate-900">Rs {Number(product.default_price || 0).toFixed(2)}</span>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Mode</p>
-          <p className="text-sm font-medium text-slate-800">{tracked ? "Tracked by IDs" : "Bulk quantity"}</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t("productCard.mode")}</p>
+          <p className="text-sm font-medium text-slate-800">{tracked ? t("productCard.trackedByIds") : t("productCard.bulkQuantity")}</p>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">IDs</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t("common.ids")}</p>
           <p className="max-h-16 overflow-auto text-sm text-slate-700">
             {tracked
               ? product.ids.map(formatId).filter(Boolean).join(", ")
-              : "No item IDs for this product"}
+              : t("productCard.noIds")}
           </p>
         </div>
         <button
@@ -56,7 +58,7 @@ export default function ProductCard({ product, onDelete, deleting = false }) {
           onClick={() => onDelete?.(product)}
           disabled={deleting}
         >
-          {deleting ? "Deleting..." : "Delete Product"}
+          {deleting ? t("productCard.deleting") : t("productCard.deleteProduct")}
         </button>
       </div>
     </article>
