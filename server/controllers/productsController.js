@@ -111,16 +111,64 @@ async function createProduct(req, res) {
   }
 
   try {
-    const { rows } = await getPool().query(
-      `
-        INSERT INTO products (name, category, stock, default_price, ids, image_url)
-        VALUES ($1, $2, $3, $4, $5::jsonb, $6)
-        RETURNING id, name, category, stock, default_price, ids, image_url
-      `,
-      [name.trim(), category.trim(), stock, defaultPrice, JSON.stringify(uniqueIds), imageUrl || null]
-    );
+    const client = await getPool().connect();
 
-    return res.status(201).json(rows[0]);
+    try {
+      await client.query("BEGIN");
+
+      const { rows } = await client.query(
+        `
+          INSERT INTO products (name, category, stock, default_price, ids, image_url)
+          VALUES ($1, $2, $3, $4, $5::jsonb, $6)
+          RETURNING id, name, category, stock, default_price, ids, image_url
+        `,
+        [name.trim(), category.trim(), stock, defaultPrice, JSON.stringify(uniqueIds), imageUrl || null]
+      );
+
+      const product = rows[0];
+
+      if (stock > 0) {
+        if (uniqueIds.length > 0) {
+          for (let index = 0; index < uniqueIds.length; index += 1) {
+            const trackedId = uniqueIds[index].id;
+            await logItemReport(client, {
+              productId: product.id,
+              itemId: trackedId,
+              type: "buy",
+              quantity: 1,
+              buyPrice: defaultPrice,
+              sellPrice: null,
+              price: defaultPrice,
+              profit: 0,
+              remainingStock: index + 1,
+            });
+          }
+        } else {
+          await logItemReport(client, {
+            productId: product.id,
+            itemId: null,
+            type: "buy",
+            quantity: stock,
+            buyPrice: defaultPrice,
+            sellPrice: null,
+            price: defaultPrice,
+            profit: 0,
+            remainingStock: stock,
+          });
+        }
+
+        await logTransaction(client, product.id, "buy", defaultPrice * stock);
+      }
+
+      await client.query("COMMIT");
+
+      return res.status(201).json(product);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   } catch (_error) {
     return res.status(500).json({ error: "Failed to create product" });
   }
