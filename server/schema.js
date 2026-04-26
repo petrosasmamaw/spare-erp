@@ -26,11 +26,17 @@ async function initSchema() {
 
       IF ids_type <> 'jsonb' THEN
         ALTER TABLE products
+        ALTER COLUMN ids DROP DEFAULT;
+
+        ALTER TABLE products
         ALTER COLUMN ids TYPE JSONB
-        USING COALESCE(
+        USING to_jsonb(ids);
+
+        UPDATE products
+        SET ids = COALESCE(
           (
             SELECT jsonb_agg(jsonb_build_object('id', item))
-            FROM unnest(ids::text[]) AS item
+            FROM jsonb_array_elements_text(ids) AS item
           ),
           '[]'::jsonb
         );

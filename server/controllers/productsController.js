@@ -109,10 +109,10 @@ async function createProduct(req, res) {
     const { rows } = await getPool().query(
       `
         INSERT INTO products (name, category, stock, default_price, ids, image_url)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES ($1, $2, $3, $4, $5::jsonb, $6)
         RETURNING id, name, category, stock, default_price, ids, image_url
       `,
-      [name.trim(), category.trim(), stock, defaultPrice, uniqueIds, imageUrl || null]
+      [name.trim(), category.trim(), stock, defaultPrice, JSON.stringify(uniqueIds), imageUrl || null]
     );
 
     return res.status(201).json(rows[0]);
@@ -199,8 +199,8 @@ async function buyProduct(req, res) {
       const newStock = product.stock + uniqueIncoming.length;
 
       await client.query(
-        `UPDATE products SET stock = $1, ids = $2, updated_at = NOW() WHERE id = $3`,
-        [newStock, newIds, productId]
+        `UPDATE products SET stock = $1, ids = $2::jsonb, updated_at = NOW() WHERE id = $3`,
+        [newStock, JSON.stringify(newIds), productId]
       );
 
       for (let index = 0; index < uniqueIncoming.length; index += 1) {
@@ -303,8 +303,8 @@ async function sellProduct(req, res) {
       const newStock = product.stock - 1;
 
       await client.query(
-        `UPDATE products SET stock = $1, ids = $2, updated_at = NOW() WHERE id = $3`,
-        [newStock, nextIds, productId]
+        `UPDATE products SET stock = $1, ids = $2::jsonb, updated_at = NOW() WHERE id = $3`,
+        [newStock, JSON.stringify(nextIds), productId]
       );
 
       await logItemReport(client, {
