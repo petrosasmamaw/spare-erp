@@ -129,6 +129,7 @@ export const createFinanceEntry = createAsyncThunk(
 );
 
 const initialState = {
+  language: "en",
   products: [],
   reports: [],
   transactions: [],
@@ -157,6 +158,12 @@ const erpSlice = createSlice({
   reducers: {
     clearError(state) {
       state.error = null;
+    },
+    setLanguage(state, action) {
+      const next = action.payload;
+      if (next === "en" || next === "amh") {
+        state.language = next;
+      }
     },
   },
   extraReducers: (builder) => {
@@ -250,6 +257,6 @@ const erpSlice = createSlice({
   },
 });
 
-export const { clearError } = erpSlice.actions;
+export const { clearError, setLanguage } = erpSlice.actions;
 
 export default erpSlice.reducer;

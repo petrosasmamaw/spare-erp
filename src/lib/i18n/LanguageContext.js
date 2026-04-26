@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { setLanguage as setLanguageAction } from "@/lib/features/erpSlice";
 import { translations } from "@/lib/i18n/translations";
-
-const LanguageContext = createContext(null);
 
 function getValueByPath(obj, path) {
   return path.split(".").reduce((acc, part) => (acc && acc[part] !== undefined ? acc[part] : undefined), obj);
@@ -21,43 +21,46 @@ function interpolate(text, vars = {}) {
 }
 
 export function LanguageProvider({ children }) {
-  const [language, setLanguage] = useState(() => {
-    if (typeof window === "undefined") {
-      return "en";
-    }
+  const dispatch = useDispatch();
+  const language = useSelector((state) => state.erp.language);
 
+  useEffect(() => {
     const stored = window.localStorage.getItem("spare-erp-lang");
-    return stored === "en" || stored === "amh" ? stored : "en";
-  });
+    if (stored === "en" || stored === "amh") {
+      dispatch(setLanguageAction(stored));
+    }
+  }, [dispatch]);
 
   useEffect(() => {
     window.localStorage.setItem("spare-erp-lang", language);
     document.documentElement.lang = language === "amh" ? "am" : "en";
   }, [language]);
 
-  const value = useMemo(() => {
-    const t = (key, vars) => {
+  return children;
+}
+
+export function useLanguage() {
+  const dispatch = useDispatch();
+  const language = useSelector((state) => state.erp.language);
+
+  const t = useMemo(() => {
+    return (key, vars) => {
       const active = translations[language] || translations.en;
       const fallback = translations.en;
       const result = getValueByPath(active, key) ?? getValueByPath(fallback, key) ?? key;
       return interpolate(result, vars);
     };
-
-    return {
-      language,
-      setLanguage,
-      t,
-    };
   }, [language]);
 
-  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
-}
+  const setLanguage = (nextLanguage) => {
+    const resolved =
+      typeof nextLanguage === "function" ? nextLanguage(language) : nextLanguage;
+    dispatch(setLanguageAction(resolved));
+  };
 
-export function useLanguage() {
-  const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error("useLanguage must be used inside LanguageProvider");
-  }
-
-  return context;
+  return {
+    language,
+    setLanguage,
+    t,
+  };
 }
