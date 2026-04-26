@@ -6,6 +6,8 @@ import {
   createFinanceEntry,
   fetchFinanceReports,
   fetchFinanceSummary,
+  fetchSupplierCredits,
+  paySupplierCredit,
 } from "@/lib/features/erpSlice";
 
 function asCurrency(value) {
@@ -14,19 +16,23 @@ function asCurrency(value) {
 
 export default function BalancePage() {
   const dispatch = useDispatch();
-  const { financeSummary, financeReports, actionLoading } = useSelector((state) => state.erp);
+  const { financeSummary, financeReports, supplierCredits, actionLoading } = useSelector((state) => state.erp);
 
   const [range, setRange] = useState("all");
   const [accountFilter, setAccountFilter] = useState("");
+  const [showSupplierCredits, setShowSupplierCredits] = useState(false);
+  const [payAmounts, setPayAmounts] = useState({});
   const [form, setForm] = useState({
     account_type: "balance",
     direction: "in",
     amount: "",
+    supplier_name: "",
     note: "",
   });
 
   useEffect(() => {
     dispatch(fetchFinanceSummary());
+    dispatch(fetchSupplierCredits());
   }, [dispatch]);
 
   useEffect(() => {
@@ -41,11 +47,31 @@ export default function BalancePage() {
         account_type: form.account_type,
         direction: form.direction,
         amount: Number(form.amount),
+        supplier_name: form.account_type === "credit" ? form.supplier_name.trim() : undefined,
         note: form.note,
       })
     );
 
-    setForm((prev) => ({ ...prev, amount: "", note: "" }));
+    setForm((prev) => ({ ...prev, amount: "", supplier_name: "", note: "" }));
+    dispatch(fetchFinanceReports({ range, account: accountFilter }));
+  }
+
+  async function onPayCredit(supplierName) {
+    const amount = Number(payAmounts[supplierName] || 0);
+
+    if (amount <= 0) {
+      return;
+    }
+
+    await dispatch(
+      paySupplierCredit({
+        supplier_name: supplierName,
+        amount,
+        note: `Credit payment to ${supplierName}`,
+      })
+    );
+
+    setPayAmounts((prev) => ({ ...prev, [supplierName]: "" }));
     dispatch(fetchFinanceReports({ range, account: accountFilter }));
   }
 
@@ -56,9 +82,21 @@ export default function BalancePage() {
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Balance</p>
           <p className="mt-2 font-display text-3xl text-emerald-700">{asCurrency(financeSummary.balance)}</p>
         </article>
-        <article className="rounded-3xl border border-amber-200 bg-white/90 p-4 shadow-lg shadow-amber-100/60">
+        <article
+          className="cursor-pointer rounded-3xl border border-amber-200 bg-white/90 p-4 shadow-lg shadow-amber-100/60"
+          onClick={() => setShowSupplierCredits((prev) => !prev)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setShowSupplierCredits((prev) => !prev);
+            }
+          }}
+        >
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Credit</p>
           <p className="mt-2 font-display text-3xl text-amber-700">{asCurrency(financeSummary.credit)}</p>
+          <p className="mt-2 text-xs text-slate-500">Click to view supplier credits</p>
         </article>
         <article className="rounded-3xl border border-fuchsia-200 bg-white/90 p-4 shadow-lg shadow-fuchsia-100/60">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Profit</p>
@@ -80,6 +118,65 @@ export default function BalancePage() {
         </article>
       </div>
 
+      {showSupplierCredits ? (
+        <article className="rounded-3xl border border-amber-200 bg-white/90 p-5 shadow-lg shadow-amber-100/60">
+          <h2 className="font-display text-2xl">Supplier Credit List</h2>
+          <p className="mt-1 text-sm text-slate-600">Only suppliers with outstanding credit are shown.</p>
+
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-xs uppercase tracking-[0.2em] text-slate-500">
+                  <th className="pb-3">Supplier</th>
+                  <th className="pb-3">Outstanding Credit</th>
+                  <th className="pb-3">Pay Amount</th>
+                  <th className="pb-3">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {supplierCredits.map((row) => (
+                  <tr key={row.id} className="border-b border-slate-100">
+                    <td className="py-3 font-medium">{row.supplier_name}</td>
+                    <td className="py-3">{asCurrency(row.amount)}</td>
+                    <td className="py-3">
+                      <input
+                        className="input max-w-[180px]"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="Amount"
+                        value={payAmounts[row.supplier_name] || ""}
+                        onChange={(e) =>
+                          setPayAmounts((prev) => ({
+                            ...prev,
+                            [row.supplier_name]: e.target.value,
+                          }))
+                        }
+                      />
+                    </td>
+                    <td className="py-3">
+                      <button
+                        type="button"
+                        className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-200"
+                        onClick={() => onPayCredit(row.supplier_name)}
+                        disabled={actionLoading}
+                      >
+                        {actionLoading ? "Paying..." : "Pay Credit"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {supplierCredits.length === 0 ? (
+                  <tr>
+                    <td className="py-4 text-slate-500" colSpan={4}>No outstanding supplier credits.</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      ) : null}
+
       <div className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
         <form
           onSubmit={onSubmit}
@@ -92,7 +189,13 @@ export default function BalancePage() {
             <select
               className="input"
               value={form.account_type}
-              onChange={(e) => setForm((prev) => ({ ...prev, account_type: e.target.value }))}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  account_type: e.target.value,
+                  supplier_name: e.target.value === "credit" ? prev.supplier_name : "",
+                }))
+              }
             >
               <option value="balance">Balance</option>
               <option value="credit">Credit</option>
@@ -117,6 +220,16 @@ export default function BalancePage() {
               onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
               required
             />
+
+            {form.account_type === "credit" ? (
+              <input
+                className="input"
+                placeholder="Supplier name"
+                value={form.supplier_name}
+                onChange={(e) => setForm((prev) => ({ ...prev, supplier_name: e.target.value }))}
+                required
+              />
+            ) : null}
 
             <input
               className="input"
@@ -158,6 +271,7 @@ export default function BalancePage() {
                   <th className="pb-3">Account</th>
                   <th className="pb-3">Direction</th>
                   <th className="pb-3">Amount</th>
+                  <th className="pb-3">Supplier</th>
                   <th className="pb-3">Source</th>
                   <th className="pb-3">Note</th>
                   <th className="pb-3">Balance After</th>
@@ -171,6 +285,7 @@ export default function BalancePage() {
                     <td className="py-3 capitalize">{row.account_type}</td>
                     <td className="py-3 uppercase">{row.direction}</td>
                     <td className="py-3">{asCurrency(row.amount)}</td>
+                    <td className="py-3">{row.supplier_name || "-"}</td>
                     <td className="py-3">{row.source || "-"}</td>
                     <td className="py-3">{row.note || "-"}</td>
                     <td className="py-3">{asCurrency(row.balance_after)}</td>
@@ -179,7 +294,7 @@ export default function BalancePage() {
                 ))}
                 {financeReports.length === 0 ? (
                   <tr>
-                    <td className="py-4 text-slate-500" colSpan={8}>No balance/credit reports found.</td>
+                    <td className="py-4 text-slate-500" colSpan={9}>No balance/credit reports found.</td>
                   </tr>
                 ) : null}
               </tbody>

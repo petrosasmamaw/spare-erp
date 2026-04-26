@@ -114,6 +114,7 @@ async function initSchema() {
       account_type TEXT NOT NULL CHECK (account_type IN ('balance', 'credit')),
       direction TEXT NOT NULL CHECK (direction IN ('in', 'out')),
       amount NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
+      supplier_name TEXT,
       note TEXT,
       source TEXT,
       reference_type TEXT,
@@ -121,6 +122,18 @@ async function initSchema() {
       balance_after NUMERIC(14, 2) NOT NULL CHECK (balance_after >= 0),
       credit_after NUMERIC(14, 2) NOT NULL CHECK (credit_after >= 0),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`ALTER TABLE finance_reports ADD COLUMN IF NOT EXISTS supplier_name TEXT;`);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS supplier_credits (
+      id SERIAL PRIMARY KEY,
+      supplier_name TEXT NOT NULL UNIQUE,
+      amount NUMERIC(14, 2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
 
@@ -138,6 +151,24 @@ async function initSchema() {
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_finance_reports_created_at ON finance_reports(created_at);
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_finance_reports_supplier_name ON finance_reports(supplier_name);
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_supplier_credits_supplier_name ON supplier_credits(supplier_name);
+  `);
+
+  await pool.query(`
+    INSERT INTO supplier_credits (supplier_name, amount)
+    SELECT 'Legacy Credit', credit
+    FROM finance_accounts
+    WHERE id = 1
+      AND credit > 0
+      AND NOT EXISTS (SELECT 1 FROM supplier_credits)
+    ON CONFLICT (supplier_name) DO NOTHING;
   `);
 }
 

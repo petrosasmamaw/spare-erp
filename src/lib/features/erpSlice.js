@@ -94,6 +94,25 @@ export const fetchFinanceReports = createAsyncThunk(
   }
 );
 
+export const fetchSupplierCredits = createAsyncThunk("erp/fetchSupplierCredits", async () => {
+  return apiRequest("/finance/supplier-credits");
+});
+
+export const paySupplierCredit = createAsyncThunk(
+  "erp/paySupplierCredit",
+  async (payload, { dispatch }) => {
+    await apiRequest("/finance/pay-credit", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    await dispatch(fetchFinanceSummary());
+    await dispatch(fetchFinanceReports());
+    await dispatch(fetchSupplierCredits());
+    return true;
+  }
+);
+
 export const createFinanceEntry = createAsyncThunk(
   "erp/createFinanceEntry",
   async (payload, { dispatch }) => {
@@ -104,6 +123,7 @@ export const createFinanceEntry = createAsyncThunk(
 
     await dispatch(fetchFinanceSummary());
     await dispatch(fetchFinanceReports());
+    await dispatch(fetchSupplierCredits());
     return true;
   }
 );
@@ -113,6 +133,7 @@ const initialState = {
   reports: [],
   transactions: [],
   financeReports: [],
+  supplierCredits: [],
   financeSummary: {
     balance: 0,
     credit: 0,
@@ -182,13 +203,20 @@ const erpSlice = createSlice({
       .addCase(fetchFinanceReports.rejected, (state, action) => {
         state.error = action.error.message || "Failed to load finance reports";
       })
+      .addCase(fetchSupplierCredits.fulfilled, (state, action) => {
+        state.supplierCredits = action.payload;
+      })
+      .addCase(fetchSupplierCredits.rejected, (state, action) => {
+        state.error = action.error.message || "Failed to load supplier credits";
+      })
       .addMatcher(
         (action) =>
           action.type === createProduct.pending.type ||
           action.type === deleteProduct.pending.type ||
           action.type === buyProduct.pending.type ||
           action.type === sellProduct.pending.type ||
-          action.type === createFinanceEntry.pending.type,
+          action.type === createFinanceEntry.pending.type ||
+          action.type === paySupplierCredit.pending.type,
         (state) => {
           state.actionLoading = true;
           state.error = null;
@@ -200,7 +228,8 @@ const erpSlice = createSlice({
           action.type === deleteProduct.fulfilled.type ||
           action.type === buyProduct.fulfilled.type ||
           action.type === sellProduct.fulfilled.type ||
-          action.type === createFinanceEntry.fulfilled.type,
+          action.type === createFinanceEntry.fulfilled.type ||
+          action.type === paySupplierCredit.fulfilled.type,
         (state) => {
           state.actionLoading = false;
         }
@@ -211,7 +240,8 @@ const erpSlice = createSlice({
           action.type === deleteProduct.rejected.type ||
           action.type === buyProduct.rejected.type ||
           action.type === sellProduct.rejected.type ||
-          action.type === createFinanceEntry.rejected.type,
+          action.type === createFinanceEntry.rejected.type ||
+          action.type === paySupplierCredit.rejected.type,
         (state, action) => {
           state.actionLoading = false;
           state.error = action.error.message || "Action failed";

@@ -74,6 +74,7 @@ async function getFinanceReports(req, res) {
           account_type,
           direction,
           amount,
+            supplier_name,
           note,
           source,
           reference_type,
@@ -100,6 +101,7 @@ async function createFinanceEntry(req, res) {
     account_type: accountTypeRaw,
     direction: directionRaw,
     amount: amountRaw,
+    supplier_name: supplierNameRaw,
     note,
   } = req.body || {};
 
@@ -119,6 +121,12 @@ async function createFinanceEntry(req, res) {
     return res.status(400).json({ error: "amount must be > 0" });
   }
 
+  const supplierName = supplierNameRaw ? String(supplierNameRaw).trim() : "";
+
+  if (accountType === "credit" && !supplierName) {
+    return res.status(400).json({ error: "supplier_name is required for credit entries" });
+  }
+
   const client = await getPool().connect();
 
   try {
@@ -128,6 +136,7 @@ async function createFinanceEntry(req, res) {
       accountType,
       direction,
       amount,
+      supplierName: accountType === "credit" ? supplierName : null,
       note: note ? String(note).trim() : null,
       source: "manual",
       referenceType: "manual",
@@ -144,8 +153,82 @@ async function createFinanceEntry(req, res) {
   }
 }
 
+async function getSupplierCredits(_req, res) {
+  try {
+    const { rows } = await getPool().query(
+      `
+        SELECT id, supplier_name, amount, updated_at
+        FROM supplier_credits
+        WHERE amount > 0
+        ORDER BY amount DESC, supplier_name ASC
+      `
+    );
+
+    res.json(rows);
+  } catch (_error) {
+    res.status(500).json({ error: "Failed to load supplier credits" });
+  }
+}
+
+async function paySupplierCredit(req, res) {
+  const {
+    supplier_name: supplierNameRaw,
+    amount: amountRaw,
+    note,
+  } = req.body || {};
+
+  const supplierName = String(supplierNameRaw || "").trim();
+  const amount = parseNumeric(amountRaw, -1);
+
+  if (!supplierName) {
+    return res.status(400).json({ error: "supplier_name is required" });
+  }
+
+  if (amount <= 0) {
+    return res.status(400).json({ error: "amount must be > 0" });
+  }
+
+  const client = await getPool().connect();
+
+  try {
+    await client.query("BEGIN");
+
+    await applyFinanceEntry(client, {
+      accountType: "balance",
+      direction: "out",
+      amount,
+      note: note ? String(note).trim() : `Pay credit to ${supplierName}`,
+      source: "credit-payment",
+      referenceType: "supplier",
+      referenceId: null,
+      supplierName: null,
+    });
+
+    const summary = await applyFinanceEntry(client, {
+      accountType: "credit",
+      direction: "out",
+      amount,
+      supplierName,
+      note: note ? String(note).trim() : `Credit repayment to ${supplierName}`,
+      source: "credit-payment",
+      referenceType: "supplier",
+      referenceId: null,
+    });
+
+    await client.query("COMMIT");
+    return res.status(201).json({ ok: true, ...summary });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return res.status(400).json({ error: error.message || "Failed to pay supplier credit" });
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   createFinanceEntry,
   getFinanceReports,
   getFinanceSummary,
+  getSupplierCredits,
+  paySupplierCredit,
 };

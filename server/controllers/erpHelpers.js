@@ -44,7 +44,7 @@ async function ensureFinanceAccountRow(client) {
 
 async function applyFinanceEntry(
   client,
-  { accountType, direction, amount, note, source, referenceType, referenceId }
+  { accountType, direction, amount, note, source, referenceType, referenceId, supplierName }
 ) {
   await ensureFinanceAccountRow(client);
 
@@ -67,9 +67,46 @@ async function applyFinanceEntry(
       nextBalance -= amount;
     }
   } else if (accountType === "credit") {
+    const normalizedSupplier = String(supplierName || "").trim();
+
+    if (!normalizedSupplier) {
+      throw new Error("Supplier name is required for credit entries");
+    }
+
     if (direction === "in") {
+      await client.query(
+        `
+          INSERT INTO supplier_credits (supplier_name, amount, updated_at)
+          VALUES ($1, $2, NOW())
+          ON CONFLICT (supplier_name)
+          DO UPDATE SET amount = supplier_credits.amount + EXCLUDED.amount, updated_at = NOW()
+        `,
+        [normalizedSupplier, amount]
+      );
       nextCredit += amount;
     } else {
+      const supplierResult = await client.query(
+        `SELECT amount FROM supplier_credits WHERE supplier_name = $1 FOR UPDATE`,
+        [normalizedSupplier]
+      );
+
+      const currentSupplierCredit = Number(supplierResult.rows[0]?.amount || 0);
+
+      if (currentSupplierCredit < amount) {
+        throw new Error("Credit repayment exceeds supplier credit");
+      }
+
+      const nextSupplierCredit = currentSupplierCredit - amount;
+
+      if (nextSupplierCredit === 0) {
+        await client.query(`DELETE FROM supplier_credits WHERE supplier_name = $1`, [normalizedSupplier]);
+      } else {
+        await client.query(
+          `UPDATE supplier_credits SET amount = $1, updated_at = NOW() WHERE supplier_name = $2`,
+          [nextSupplierCredit, normalizedSupplier]
+        );
+      }
+
       if (currentCredit < amount) {
         throw new Error("Credit repayment exceeds current credit");
       }
@@ -94,6 +131,7 @@ async function applyFinanceEntry(
         account_type,
         direction,
         amount,
+        supplier_name,
         note,
         source,
         reference_type,
@@ -101,12 +139,13 @@ async function applyFinanceEntry(
         balance_after,
         credit_after
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     `,
     [
       accountType,
       direction,
       amount,
+      accountType === "credit" ? String(supplierName || "").trim() : null,
       note || null,
       source || null,
       referenceType || null,

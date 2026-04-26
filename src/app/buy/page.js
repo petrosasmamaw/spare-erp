@@ -22,6 +22,7 @@ export default function BuyPage() {
   const [idsText, setIdsText] = useState("");
   const [price, setPrice] = useState("");
   const [paymentSource, setPaymentSource] = useState("credit");
+  const [supplierName, setSupplierName] = useState("");
 
   useEffect(() => {
     dispatch(fetchProducts());
@@ -48,17 +49,20 @@ export default function BuyPage() {
           ids,
           price: Number(price || selectedProduct?.default_price || 0),
           payment_source: paymentSource,
+          supplier_name: paymentSource === "credit" ? supplierName.trim() : undefined,
         }
       : {
           quantity: Number(quantity),
           price: Number(price || selectedProduct?.default_price || 0),
           payment_source: paymentSource,
+          supplier_name: paymentSource === "credit" ? supplierName.trim() : undefined,
         };
 
     await dispatch(buyProduct({ productId: selectedId, payload }));
     setQuantity("1");
     setIdsText("");
     setPrice("");
+    setSupplierName("");
   }
 
   return (
@@ -107,6 +111,16 @@ export default function BuyPage() {
             <option value="credit">Buy by Credit</option>
             <option value="balance">Buy by Balance</option>
           </select>
+
+          {paymentSource === "credit" ? (
+            <input
+              className="input"
+              placeholder="Supplier name (required for credit)"
+              value={supplierName}
+              onChange={(e) => setSupplierName(e.target.value)}
+              required
+            />
+          ) : null}
 
           <p className="rounded-2xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
             Balance: Rs {Number(financeSummary.balance || 0).toFixed(2)} | Credit: Rs {Number(financeSummary.credit || 0).toFixed(2)}

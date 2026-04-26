@@ -210,6 +210,7 @@ async function buyProduct(req, res) {
     ids: idsRaw,
     price: priceRaw,
     payment_source: paymentSourceRaw,
+    supplier_name: supplierNameRaw,
   } = req.body || {};
 
   if (!Number.isInteger(productId)) {
@@ -234,10 +235,16 @@ async function buyProduct(req, res) {
     const product = rows[0];
     const unitPrice = parseNumeric(priceRaw, parseNumeric(product.default_price, 0));
     const paymentSource = String(paymentSourceRaw || "credit").trim().toLowerCase();
+    const supplierName = String(supplierNameRaw || "").trim();
 
     if (paymentSource !== "balance" && paymentSource !== "credit") {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: "payment_source must be balance or credit" });
+    }
+
+    if (paymentSource === "credit" && !supplierName) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "supplier_name is required for credit purchase" });
     }
 
     const currentIds = normalizeStoredIds(product.ids, parseNumeric(product.default_price, 0));
@@ -274,7 +281,11 @@ async function buyProduct(req, res) {
         accountType: paymentSource,
         direction: paymentSource === "balance" ? "out" : "in",
         amount: purchaseAmount,
-        note: `Buy tracked IDs for product #${productId}`,
+        supplierName: paymentSource === "credit" ? supplierName : null,
+        note:
+          paymentSource === "credit"
+            ? `Buy tracked IDs for product #${productId} on credit from ${supplierName}`
+            : `Buy tracked IDs for product #${productId}`,
         source: paymentSource === "balance" ? "buy-balance" : "buy-credit",
         referenceType: "product",
         referenceId: productId,
@@ -319,7 +330,11 @@ async function buyProduct(req, res) {
       accountType: paymentSource,
       direction: paymentSource === "balance" ? "out" : "in",
       amount: purchaseAmount,
-      note: `Buy quantity for product #${productId}`,
+      supplierName: paymentSource === "credit" ? supplierName : null,
+      note:
+        paymentSource === "credit"
+          ? `Buy quantity for product #${productId} on credit from ${supplierName}`
+          : `Buy quantity for product #${productId}`,
       source: paymentSource === "balance" ? "buy-balance" : "buy-credit",
       referenceType: "product",
       referenceId: productId,
