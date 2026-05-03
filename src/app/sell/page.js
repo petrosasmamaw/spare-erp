@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchProducts, sellProduct } from "@/lib/features/erpSlice";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import PrinterDebug from "@/components/PrinterDebug";
+import SellReceiptModal from "@/components/SellReceiptModal";
 
 function formatTrackedId(item) {
   if (!item) return "";
@@ -23,6 +25,8 @@ export default function SellPage() {
   const [quantity, setQuantity] = useState("1");
   const [itemId, setItemId] = useState("");
   const [price, setPrice] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState(null);
 
   useEffect(() => {
     dispatch(fetchProducts());
@@ -50,6 +54,67 @@ export default function SellPage() {
     setQuantity("1");
     setItemId("");
     setPrice("");
+  }
+
+  async function sellWithReceipt(event) {
+    event?.preventDefault?.();
+    if (!selectedId) return;
+
+    const idList = itemId
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    const payload = idList.length
+      ? { item_ids: idList, price: Number(price || selectedProduct?.default_price || 0) }
+      : { quantity: Number(quantity), price: Number(price || selectedProduct?.default_price || 0) };
+
+    // 1. Save sale via existing logic
+    await dispatch(sellProduct({ productId: selectedId, payload }));
+
+    // clear form
+    setQuantity("1");
+    setItemId("");
+    setPrice("");
+
+    // 2. Try printing receipt via QZ Tray only (no PDF/browser fallback).
+    try {
+      const { connectPrinter, getPrinter, createConfigForPrinter, printRaw } = await import("@/lib/printer");
+      const { generateReceipt } = await import("@/lib/receipt");
+
+      await connectPrinter();
+      const printerName = await getPrinter();
+
+      const qty = payload.quantity || (payload.item_ids ? payload.item_ids.length : 1);
+      const priceVal = Number(payload.price || 0);
+      const order = {
+        items: [
+          {
+            name: selectedProduct?.name || "Item",
+            qty,
+            price: priceVal,
+          },
+        ],
+        total: qty * priceVal,
+      };
+
+      if (!printerName) {
+        throw new Error("No printer found");
+      }
+
+      const config = await createConfigForPrinter(printerName);
+      const data = generateReceipt(order);
+
+      await printRaw(config, data);
+      console.log("✅ Receipt printed via QZ Tray");
+    } catch (error) {
+      console.error("Print failed: ensure QZ Tray is running on the POS machine, the printer is installed, and NEXT_PUBLIC_POS_PRINTER_NAME matches the printer name.", error);
+      try {
+        alert("Printing failed. Check QZ Tray on the POS machine, printer installation, and NEXT_PUBLIC_POS_PRINTER_NAME env setting.");
+      } catch (e) {
+        // ignore if alert isn't available
+      }
+    }
   }
 
   return (
@@ -94,11 +159,43 @@ export default function SellPage() {
             onChange={(e) => setPrice(e.target.value)}
           />
 
-          <button disabled={actionLoading} className="btn-primary" type="submit">
-            {actionLoading ? t("sell.processing") : t("sell.processSale")}
-          </button>
+          <div className="flex gap-2">
+            <button disabled={actionLoading} className="btn-primary" type="submit">
+              {actionLoading ? t("sell.processing") : t("sell.processSale")}
+            </button>
+            <button
+              disabled={actionLoading}
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                // prepare payload and open modal
+                const idList = itemId
+                  .split(",")
+                  .map((part) => part.trim())
+                  .filter(Boolean);
+
+                const payload = idList.length
+                  ? { item_ids: idList, price: Number(price || selectedProduct?.default_price || 0) }
+                  : { quantity: Number(quantity), price: Number(price || selectedProduct?.default_price || 0) };
+
+                setPendingPayload(payload);
+                setModalOpen(true);
+              }}
+            >
+              {actionLoading ? t("sell.processing") : "Sell with Receipt"}
+            </button>
+          </div>
         </div>
+        
+        <PrinterDebug />
       </form>
+
+      <SellReceiptModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        selectedProduct={selectedProduct}
+        payload={pendingPayload}
+      />
 
       <div className="rounded-3xl border border-white/80 bg-white/85 p-5 shadow-lg shadow-slate-200/60">
         <h3 className="font-display text-xl">{t("sell.rulesTitle")}</h3>
