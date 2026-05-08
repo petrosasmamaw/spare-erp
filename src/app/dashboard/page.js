@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "@/lib/auth-client";
 import { useDispatch, useSelector } from "react-redux";
 import StatCard from "@/components/StatCard";
 import { fetchDashboard, fetchTransactions } from "@/lib/features/erpSlice";
@@ -15,11 +17,30 @@ export default function DashboardPage() {
   const { dashboard, transactions } = useSelector((state) => state.erp);
   const { t } = useLanguage();
   const [range, setRange] = useState("all");
+  const router = useRouter();
+  const { data: session, isPending } = useSession();
 
   useEffect(() => {
+    if (!isPending && !session) {
+      router.replace("/login");
+      return;
+    }
+
+    if (!session) {
+      return;
+    }
+
     dispatch(fetchDashboard(range));
     dispatch(fetchTransactions(range));
-  }, [dispatch, range]);
+  }, [dispatch, range, isPending, session, router]);
+
+  if (isPending) {
+    return <section className="py-10 text-slate-600">Checking session...</section>;
+  }
+
+  if (!session) {
+    return null;
+  }
 
   return (
     <section className="space-y-6">

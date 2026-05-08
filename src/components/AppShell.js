@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { signOut, useSession } from "@/lib/auth-client";
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const { language, setLanguage, t } = useLanguage();
+  const { data: session } = useSession();
 
   const links = [
     { href: "/dashboard", label: t("nav.dashboard") },
@@ -25,6 +28,11 @@ export default function AppShell({ children }) {
     }
     return pathname === href || pathname.startsWith(`${href}/`);
   };
+
+  async function handleSignOut() {
+    await signOut();
+    router.push("/login");
+  }
 
   return (
     <div className="relative min-h-screen overflow-x-clip bg-[radial-gradient(circle_at_10%_10%,_#ffecc7_0%,_#f6fbff_40%,_#e8f1ff_100%)] text-slate-900">
@@ -45,6 +53,23 @@ export default function AppShell({ children }) {
             </div>
 
             <div className="flex items-center gap-2">
+              {session ? (
+                <button
+                  type="button"
+                  className="hidden rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 shadow-sm md:inline-flex"
+                  onClick={handleSignOut}
+                >
+                  Logout
+                </button>
+              ) : (
+                <Link
+                  href="/login"
+                  className="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm md:inline-flex"
+                >
+                  Login
+                </Link>
+              )}
+
               <button
                 type="button"
                 className="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm md:inline-flex"
@@ -70,6 +95,23 @@ export default function AppShell({ children }) {
 
           <nav className={`mt-4 ${menuOpen ? "block" : "hidden"} md:block`}>
             <div className="mb-3 md:hidden">
+              {session ? (
+                <button
+                  type="button"
+                  className="mr-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 shadow-sm"
+                  onClick={handleSignOut}
+                >
+                  Logout
+                </button>
+              ) : (
+                <Link
+                  href="/login"
+                  className="mr-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm"
+                >
+                  Login
+                </Link>
+              )}
+
               <button
                 type="button"
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm"
