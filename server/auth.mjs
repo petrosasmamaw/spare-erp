@@ -8,6 +8,7 @@ const webOrigins = (process.env.WEB_ORIGINS || process.env.WEB_ORIGIN || "http:/
   .split(",")
   .map((item) => item.trim())
   .filter(Boolean);
+const isProduction = process.env.NODE_ENV === "production";
 
 if (!process.env.BETTER_AUTH_SECRET) {
   console.warn("BETTER_AUTH_SECRET is not set. Set it in server/.env");
@@ -28,6 +29,12 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: authBaseURL,
   trustedOrigins: [...new Set([...webOrigins, authBaseURL])],
+  useSecureCookies: isProduction,
+  defaultCookieAttributes: {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+  },
   database: pool,
   emailAndPassword: { enabled: true },
 });
