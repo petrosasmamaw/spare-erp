@@ -24,10 +24,24 @@ async function proxyAuth(request, paramsPromise) {
     redirect: "manual",
   });
 
+  // Avoid forwarding hop-by-hop/compression headers that can break browser decoding
+  // when the runtime has already transformed the upstream payload.
+  const outboundHeaders = new Headers(response.headers);
+  outboundHeaders.delete("content-encoding");
+  outboundHeaders.delete("content-length");
+  outboundHeaders.delete("transfer-encoding");
+  outboundHeaders.delete("connection");
+  outboundHeaders.delete("keep-alive");
+  outboundHeaders.delete("proxy-authenticate");
+  outboundHeaders.delete("proxy-authorization");
+  outboundHeaders.delete("te");
+  outboundHeaders.delete("trailer");
+  outboundHeaders.delete("upgrade");
+
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
-    headers: response.headers,
+    headers: outboundHeaders,
   });
 }
 
