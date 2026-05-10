@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { signOut, useSession } from "@/lib/auth-client";
 
@@ -11,7 +11,7 @@ export default function AppShell({ children }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const { language, setLanguage, t } = useLanguage();
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
 
   const links = [
     { href: "/dashboard", label: t("nav.dashboard") },
@@ -33,6 +33,20 @@ export default function AppShell({ children }) {
     await signOut();
     router.push("/login");
   }
+
+  useEffect(() => {
+    if (isPending) return;
+
+    const unauthAllowed = ["/login", "/register", "/"];
+
+    if (!session && !unauthAllowed.includes(pathname)) {
+      router.replace("/login");
+    }
+
+    if (session && (pathname === "/login" || pathname === "/register")) {
+      router.replace("/dashboard");
+    }
+  }, [isPending, session, pathname, router]);
 
   return (
     <div className="relative min-h-screen overflow-x-clip bg-[radial-gradient(circle_at_10%_10%,_#ffecc7_0%,_#f6fbff_40%,_#e8f1ff_100%)] text-slate-900">
@@ -62,12 +76,20 @@ export default function AppShell({ children }) {
                   Logout
                 </button>
               ) : (
-                <Link
-                  href="/login"
-                  className="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm md:inline-flex"
-                >
-                  Login
-                </Link>
+                <div className="hidden md:inline-flex gap-2">
+                  <Link
+                    href="/login"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm"
+                  >
+                    Register
+                  </Link>
+                </div>
               )}
 
               <button
@@ -104,12 +126,20 @@ export default function AppShell({ children }) {
                   Logout
                 </button>
               ) : (
-                <Link
-                  href="/login"
-                  className="mr-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm"
-                >
-                  Login
-                </Link>
+                <>
+                  <Link
+                    href="/login"
+                    className="mr-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm"
+                  >
+                    Register
+                  </Link>
+                </>
               )}
 
               <button
@@ -121,25 +151,27 @@ export default function AppShell({ children }) {
                 {language === "en" ? t("nav.amharic") : t("nav.english")}
               </button>
             </div>
-            <div className="flex flex-wrap gap-2 md:gap-2.5">
-            {links.map((item) => {
-              const active = isActive(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMenuOpen(false)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    active
-                      ? "bg-[linear-gradient(135deg,#0f766e,#0284c7)] text-white shadow-md shadow-cyan-900/25"
-                      : "bg-white text-slate-700 ring-1 ring-slate-200 hover:-translate-y-[1px] hover:bg-amber-50"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-            </div>
+            {session ? (
+              <div className="flex flex-wrap gap-2 md:gap-2.5">
+                {links.map((item) => {
+                  const active = isActive(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMenuOpen(false)}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                        active
+                          ? "bg-[linear-gradient(135deg,#0f766e,#0284c7)] text-white shadow-md shadow-cyan-900/25"
+                          : "bg-white text-slate-700 ring-1 ring-slate-200 hover:-translate-y-[1px] hover:bg-amber-50"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
           </nav>
         </header>
 
